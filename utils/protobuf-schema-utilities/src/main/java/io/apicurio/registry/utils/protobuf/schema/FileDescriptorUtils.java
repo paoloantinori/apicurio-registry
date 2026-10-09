@@ -14,7 +14,6 @@ import com.squareup.wire.schema.Service;
 import com.squareup.wire.schema.Type;
 import com.squareup.wire.schema.*;
 import com.squareup.wire.schema.internal.parser.*;
-import kotlin.ranges.IntRange;
 import metadata.ProtobufSchemaMetadata;
 
 import java.io.File;
@@ -118,7 +117,7 @@ public class FileDescriptorUtils {
      */
     public static ProtoFileElement parseWithBinaryFallback(Location location, String content) {
         try {
-            return ProtoParser.Companion.parse(location, content);
+            return ProtoParser.parse(location, content);
         } catch (Exception textException) {
             try {
                 byte[] decodedBytes = Base64.getDecoder().decode(content);
@@ -286,7 +285,7 @@ public class FileDescriptorUtils {
         }
         final ProtoFileElement mainProtoElement;
         try {
-            mainProtoElement = ProtoParser.Companion.parse(Location.get(mainProtoFile.getAbsolutePath()),
+            mainProtoElement = ProtoParser.parse(Location.get(mainProtoFile.getAbsolutePath()),
                     schemaDefinition);
         }
         catch (Throwable t) {
@@ -316,7 +315,7 @@ public class FileDescriptorUtils {
             }
             final ProtoFileElement protoFile;
             try {
-                protoFile = ProtoParser.Companion.parse(Location.get(schema.getAbsolutePath()),
+                protoFile = ProtoParser.parse(Location.get(schema.getAbsolutePath()),
                         schemaContent);
             }
             catch (Throwable t) {
@@ -937,7 +936,7 @@ public class FileDescriptorUtils {
             addedOneOfs.add(oneOf);
         }
 
-        for (ReservedElement reserved : messageElem.toElement().getReserveds()) {
+        for (Reserved reserved : messageElem.reserveds()) {
             for (Object elem : reserved.getValues()) {
                 if (elem instanceof String) {
                     message.protoBuilder().addReservedName((String) elem);
@@ -948,10 +947,10 @@ public class FileDescriptorUtils {
                             .newBuilder().setStart(tag).setEnd(tag + 1);
                     message.protoBuilder().addReservedRange(rangeBuilder.build());
                 }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
+                else if (elem instanceof int[]) {
+                    int[] range = (int[]) elem;
                     DescriptorProto.ReservedRange.Builder rangeBuilder = DescriptorProto.ReservedRange
-                            .newBuilder().setStart(range.getStart()).setEnd(range.getEndInclusive() + 1);
+                            .newBuilder().setStart(range[0]).setEnd(range[1] + 1);
                     message.protoBuilder().addReservedRange(rangeBuilder.build());
                 }
                 else {
@@ -960,7 +959,7 @@ public class FileDescriptorUtils {
                 }
             }
         }
-        for (ExtensionsElement extensions : messageElem.toElement().getExtensions()) {
+        for (Extensions extensions : messageElem.getExtensionsList()) {
             for (Object elem : extensions.getValues()) {
                 if (elem instanceof Integer) {
                     int tag = (Integer) elem;
@@ -968,10 +967,10 @@ public class FileDescriptorUtils {
                             .newBuilder().setStart(tag).setEnd(tag + 1);
                     message.protoBuilder().addExtensionRange(extensionBuilder.build());
                 }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
+                else if (elem instanceof int[]) {
+                    int[] range = (int[]) elem;
                     DescriptorProto.ExtensionRange.Builder extensionBuilder = DescriptorProto.ExtensionRange
-                            .newBuilder().setStart(range.getStart()).setEnd(range.getEndInclusive() + 1);
+                            .newBuilder().setStart(range[0]).setEnd(range[1] + 1);
                     message.protoBuilder().addExtensionRange(extensionBuilder.build());
                 }
                 else {
@@ -1018,8 +1017,8 @@ public class FileDescriptorUtils {
      * method generates the synthetic one-of from a Proto3 optional field.
      */
     private static OneOf getProto3OptionalField(Field field) {
-        return new OneOf("_" + field.getName(), "", Collections.singletonList(field), field.getLocation(),
-                field.getOptions());
+        return OneOfFactory.create("_" + field.getName(), "", Collections.singletonList(field),
+                field.getLocation(), field.getOptions());
     }
 
     private static EnumDescriptorProto enumElementToProto(EnumType enumElem) {
@@ -1354,10 +1353,10 @@ public class FileDescriptorUtils {
             reserved.add(reservedElem);
         }
         for (DescriptorProto.ReservedRange reservedRange : descriptor.getReservedRangeList()) {
-            List<IntRange> values = new ArrayList<>();
+            List<Object> values = new ArrayList<>();
             int start = reservedRange.getStart();
             int end = reservedRange.getEnd() - 1;
-            values.add(new IntRange(start, end));
+            values.add(new int[] { start, end });
             ReservedElement reservedElem = new ReservedElement(DEFAULT_LOCATION, "", values);
             reserved.add(reservedElem);
         }
@@ -1366,10 +1365,10 @@ public class FileDescriptorUtils {
     private static void collectExtensions(DescriptorProto descriptor,
             ImmutableList.Builder<ExtensionsElement> extensions) {
         for (DescriptorProto.ExtensionRange extensionRange : descriptor.getExtensionRangeList()) {
-            List<IntRange> values = new ArrayList<>();
+            List<Object> values = new ArrayList<>();
             int start = extensionRange.getStart();
             int end = extensionRange.getEnd() - 1;
-            values.add(new IntRange(start, end));
+            values.add(new int[] { start, end });
             ExtensionsElement extensionsElement = new ExtensionsElement(DEFAULT_LOCATION, "", values,
                     Collections.emptyList());
             extensions.add(extensionsElement);
@@ -1550,7 +1549,7 @@ public class FileDescriptorUtils {
         List<Object> values = new ArrayList<>();
         int start = range.getStart();
         int end = range.getEnd();
-        values.add(start == end - 1 ? start : new IntRange(start, end - 1));
+        values.add(start == end - 1 ? start : new int[] { start, end - 1 });
         return new ReservedElement(DEFAULT_LOCATION, "", values);
     }
 
@@ -1768,9 +1767,9 @@ public class FileDescriptorUtils {
                     int tag = (Integer) elem;
                     message.addReservedRange(tag, tag);
                 }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
-                    message.addReservedRange(range.getStart(), range.getEndInclusive());
+                else if (elem instanceof int[]) {
+                    int[] range = (int[]) elem;
+                    message.addReservedRange(range[0], range[1]);
                 }
                 else {
                     throw new IllegalStateException(

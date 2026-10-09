@@ -21,7 +21,6 @@ import com.squareup.wire.schema.internal.parser.ReservedElement;
 import com.squareup.wire.schema.internal.parser.RpcElement;
 import com.squareup.wire.schema.internal.parser.ServiceElement;
 import com.squareup.wire.schema.internal.parser.TypeElement;
-import kotlin.ranges.IntRange;
 
 import java.io.File;
 import java.io.IOException;
@@ -77,8 +76,7 @@ public class ProtobufFile {
 
     public static ProtoFileElement toProtoFileElement(String data) {
         try {
-            ProtoParser parser = new ProtoParser(Location.get(""), data.toCharArray());
-            return parser.readProtoFile();
+            return ProtoParser.parse(Location.get(""), data);
         } catch (Exception e) {
             // Exctracted from AbstractResource.java, lines 138-149.
             byte[] decodedBytes = Base64.getDecoder().decode(data);
@@ -263,11 +261,11 @@ public class ProtobufFile {
         Set<Object> reservedFieldSet = new HashSet<>();
         for (ReservedElement reservedElement : messageElement.getReserveds()) {
             for (Object value : reservedElement.getValues()) {
-                if (value instanceof IntRange) {
-                    // Handle Kotlin IntRange from wire-schema library (e.g., "reserved 1 to 2;")
-                    IntRange intRange = (IntRange) value;
-                    Range<Integer> range = Range.range(intRange.getStart(), BoundType.CLOSED,
-                            intRange.getLast(), BoundType.CLOSED);
+                if (value instanceof int[]) {
+                    // Handle inclusive tag ranges from the wire-schema library (e.g., "reserved 1 to 2;")
+                    int[] intRange = (int[]) value;
+                    Range<Integer> range = Range.range(intRange[0], BoundType.CLOSED,
+                            intRange[1], BoundType.CLOSED);
                     reservedFieldSet.addAll(ContiguousSet.create(range, DiscreteDomain.integers()));
                 } else if (value instanceof Range) {
                     reservedFieldSet.addAll(ContiguousSet.create((Range) value, DiscreteDomain.integers()));

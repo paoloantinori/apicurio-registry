@@ -283,7 +283,7 @@ public class FileDescriptorUtilsTest {
 
     private Descriptors.FileDescriptor schemaTextToFileDescriptor(String schema, String fileName)
             throws Exception {
-        ProtoFileElement protoFileElement = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement protoFileElement = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 schema);
         return FileDescriptorUtils.protoFileToFileDescriptor(schema, fileName,
                 Optional.ofNullable(protoFileElement.getPackageName()));
@@ -519,7 +519,7 @@ public class FileDescriptorUtilsTest {
                   map<string, google.protobuf.Value> metadata = 1;
                 }
                 """;
-        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement element = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 schema);
 
         Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Doc", element,
@@ -546,7 +546,7 @@ public class FileDescriptorUtilsTest {
                   map<string, Outer.Inner> items = 1;
                 }
                 """;
-        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement element = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 schema);
 
         Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Root", element,
@@ -576,9 +576,9 @@ public class FileDescriptorUtilsTest {
                   map<string, test.common.Item> items = 1;
                 }
                 """;
-        ProtoFileElement depElement = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement depElement = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 depSchema);
-        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement element = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 schema);
 
         Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Bundle", element,
@@ -619,9 +619,9 @@ public class FileDescriptorUtilsTest {
                   map<string, test.common.Status> statuses = 2;
                 }
                 """;
-        ProtoFileElement depElement = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement depElement = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 depSchema);
-        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+        ProtoFileElement element = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                 schema);
 
         Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Config", element,
