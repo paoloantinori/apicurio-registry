@@ -139,6 +139,19 @@
       <groupId>io.confluent</groupId>
       <artifactId>kafka-protobuf-serializer</artifactId>
       <scope>test</scope>
+      <!-- Same duplicate class hazard as the app module: this module carries antiwire at compile
+           scope through the app and serde dependencies, so Square Wire and okio must not also land
+           on the test classpath via Confluent. See ANTIWIRE_MIGRATION.md finding 5. -->
+      <exclusions>
+        <exclusion>
+          <groupId>com.squareup.wire</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.squareup.okio</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.confluent</groupId>

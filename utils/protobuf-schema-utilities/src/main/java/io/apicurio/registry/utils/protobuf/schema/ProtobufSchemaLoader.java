@@ -82,14 +82,14 @@ public class ProtobufSchemaLoader {
 
             // Step 1: Convert all .proto files to ProtoContent instances
             ProtoContent protoContent = new ProtoContent(protoFileName, schemaDefinition);
-            List<ProtoContent> allDepencencies = deps.entrySet().stream().map(entry ->
+            List<ProtoContent> allDependencies = deps.entrySet().stream().map(entry ->
                     new ProtoContent(entry.getKey(), entry.getValue())).collect(Collectors.toList());
 
             // Step 2: Fix up the import statements in all .proto files so they point to canonical locations
-            allDepencencies.forEach(proto -> {
+            allDependencies.forEach(proto -> {
                 if (proto.isImportPathMismatched()) {
                     protoContent.fixImport(proto.getImportPath(), proto.getExpectedImportPath());
-                    allDepencencies.forEach(proto2 -> {
+                    allDependencies.forEach(proto2 -> {
                         if (proto2 != proto) {
                             proto2.fixImport(proto.getImportPath(), proto.getExpectedImportPath());
                         }
@@ -98,7 +98,7 @@ public class ProtobufSchemaLoader {
             });
 
             // Step 3: Write out all .proto files to their correct (package based) locations
-            for (ProtoContent proto : allDepencencies) {
+            for (ProtoContent proto : allDependencies) {
                 proto.writeTo(rootDirectory);
             }
             protoContent.writeTo(rootDirectory);

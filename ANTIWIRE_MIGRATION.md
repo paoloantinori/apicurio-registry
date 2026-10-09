@@ -33,13 +33,16 @@ protobuf modules of Apicurio Registry. Goal: existing tests still pass, test log
   io.apicurio:wire-schema-java.
 - schema-util/protobuf and schema-validation/protobuf name no Wire dependency in their poms;
   they received it transitively and keep compiling without pom changes.
-- app and integration-tests receive the schema types transitively as well; no pom changes,
-  except one test scope exclusion in app/pom.xml: kafka-protobuf-serializer (Confluent 8.0.0)
-  pulls com.squareup.wire:wire-schema-jvm and wire-runtime-jvm 5.3.0 plus okio under the same
-  package names antiwire ships, which put two ProtoParser implementations on one classpath
-  and broke Confluent's ProtobufSchema at runtime with NoSuchFieldError on the Companion
-  field. The Square Wire and okio transitives are excluded there so antiwire is the single
-  provider; the Confluent code path that still calls the Companion form is finding 5 below.
+- app and integration-tests receive the schema types transitively as well; no pom changes
+  except one pattern applied at both places Confluent's protobuf serializer is declared test
+  scoped (app/pom.xml and integration-tests/pom.xml): kafka-protobuf-serializer (Confluent
+  8.0.0) pulls com.squareup.wire:wire-schema-jvm and wire-runtime-jvm 5.3.0 plus okio under
+  the same package names antiwire ships, which put two ProtoParser implementations on one
+  classpath and broke Confluent's ProtobufSchema at runtime with NoSuchFieldError on the
+  Companion field. The Square Wire and okio transitives are excluded at both sites so
+  antiwire is the single provider; the Confluent code path that still calls the Companion
+  form is finding 5 below. integration-tests itself was never run here (no Docker), so its
+  exclusion is compile verified only.
 - utils/exportConfluent keeps Square Wire via its compile scoped kafka-schema-registry-client
   and is left untouched: it does not depend on the protobuf utilities module, so its Wire
   stack never shares a classpath with antiwire.
@@ -109,6 +112,11 @@ integration-tests:
 - All parser element constructors (ProtoFileElement, MessageElement, FieldElement,
   EnumElement, EnumConstantElement, ServiceElement, RpcElement, OneOfElement, OptionElement,
   ReservedElement, ExtensionsElement) match the arity and order of the existing call sites.
+- The loader rewrite leans on JdkSchemaLoader being AutoCloseable, on
+  initRoots(List<java.nio.file.Path>, List<java.nio.file.Path>) accepting the same directory
+  as source and proto path, and on Schema.protoFile(String) keying on the location path
+  relative to that root; compilation and the green suite prove all three together with the
+  test that fetches the staged file by its expectedImportPath.
 
 ## Test evidence
 
@@ -145,6 +153,15 @@ After migration, JDK 21, single locked Maven run per invocation:
   ProtobufSchema.toProtoFile. 32 of 34 green, 2 blocked on the planned antiwire Companion
   restoration. The first run, before the exclusion, failed the same 2 with the same error
   but from a classpath carrying both wire-schema 5.3.0 and antiwire.
+- The four additional Confluent touching app suites from the maintainer review
+  (JsonSchemaSerdeTest 24, VersionNumberingTest 1, CCompatAuthTest 5, ConfluentClientTest
+  65): 95 tests, 94 green, 1 error, ConfluentClientTest.testSerdeProtobufSchema line 132,
+  the identical Companion NoSuchFieldError. Combined app tally across the six suites: 129
+  tests, 3 errors, all three the same antiwire Companion gap, nothing else. The
+  integration-tests module test-compiles cleanly with its exclusion (BUILD SUCCESS) but was
+  never executed here, and after the exclusion the app dependency tree contains no
+  com.squareup.wire and no com.squareup.okio artifact at all, only test scoped
+  kotlin-stdlib brought directly by Confluent's own providers.
 - Skipped suites: the integration-tests module is not run at all (needs Docker or Kafka;
   this Mac has only podman, and the goal scopes testcontainers work out). The same applies
   to the Docker bound app tests. utils/exportConfluent is untouched and untested here; it
@@ -215,11 +232,49 @@ roots to initRoots) and the altitude review's Jimfs based in memory root are rec
 follow ups rather than applied: the goal prescribes the JdkSchemaLoader plus temp directory
 shape, and finding 6 above is the right place for the underlying ask.
 
+## Maintainer review round (2026-10-10 night)
+
+Two more review passes ran on the final diff: an adversarial maintainer review in the
+carlesarnal, EricWittmann and jsenko personas, and a high effort correctness review. Fixed
+in response: the same Square Wire and okio exclusion applied to integration-tests' copy of
+the kafka-protobuf-serializer dependency (only app had it, which was indefensible), the
+long standing allDepencencies typo in the loader renamed, a cleanup test pinning the loader's
+temp directory lifecycle added to FileDescriptorUtilsTest, and the app Confluent touching
+suites that had escaped the first reported set (JsonSchemaSerdeTest, VersionNumberingTest,
+ConfluentClientTest, CCompatAuthTest) added to the recorded runs. Filed as REG-444 (the
+post parity cleanups: OneOfFactory deletion, exclusion removal, loader staging revisit, the
+fate of this log) and REG-445 (a pre-existing off by one in toReserved for multi tag enum
+reserved ranges, identical on main, preserved verbatim here). Answered with reasoning
+rather than changed: removing the kotlin-stdlib and okio properties from the root pom does
+not orphan anything real, because those entries only ever mediated the wire stack's own
+transitives and no module depends on okhttp directly; the guava pin stays inline in the
+utilities module for the blast radius reason recorded in the simplify round; and the claim
+that the dependency staging choreography has no unit coverage is incorrect, since
+testParseProtoFileWithBinaryDependencies and
+testParseProtoFileAndDependenciesOnDifferentPackagesAndKnownType both drive loadSchema with
+populated dependency maps through the rewritten code.
+
 ## Open problems
 
-- None known so far. The app module's protobuf touching tests and the Docker bound suites
-  are still to be triaged (no Docker on this Mac, only podman; testcontainers suites are out
-  of scope and will be listed here).
+- This branch does not build from a clean checkout: io.apicurio:wire-schema-java
+  0.1.0-SNAPSHOT exists only in the local ~/.m2, installed from antiwire 9d6423f (nothing
+  is published anywhere, by design). Building this branch requires cloning antiwire and
+  running its install first; this is inherent to the spike, not a defect of it.
+- ProtobufSerdeTest.testSerdeMix (2 parameterizations) and
+  ConfluentClientTest.testSerdeProtobufSchema are red by design until the antiwire
+  Companion restoration lands (finding 5, tracked for cleanup in REG-444 on the Apicurio
+  side). Three blocked tests out of the 129 app tests run; every other suite touched by
+  this migration is fully green.
+- The app module's Confluent touching suites beyond the four first reported
+  (JsonSchemaSerdeTest, VersionNumberingTest, ConfluentClientTest, CCompatAuthTest) are now
+  included in the recorded runs; testcontainers bound suites remain out of scope on this
+  Mac (no Docker, only podman) and the integration-tests module was compile verified but
+  never executed.
+- The staging directory of the new loader inherits host filesystem semantics: on a case
+  insensitive host (macOS APFS) a dependency whose name differs only in case from a staged
+  prebuilt proto collides, and today's only traversal defense for dependency names is
+  extractFilename keeping the last path segment; the in-memory FakeFileSystem had neither
+  property. Both are recorded in finding 6 for the antiwire side decision.
 
 ## Messages to the antiwire session
 

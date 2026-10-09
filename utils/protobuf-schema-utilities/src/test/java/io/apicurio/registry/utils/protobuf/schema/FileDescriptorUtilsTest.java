@@ -34,6 +34,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -640,6 +641,30 @@ public class FileDescriptorUtilsTest {
         Descriptors.FieldDescriptor statusValue = statuses.getMessageType().findFieldByName("value");
         assertEquals(Descriptors.FieldDescriptor.Type.ENUM, statusValue.getType());
         assertEquals("test.common.Status", statusValue.getEnumType().getFullName());
+    }
+
+    /**
+     * The antiwire based loader stages every schema into a fresh temp directory; a broken
+     * cleanup would leak one directory per schema operation on a long running registry.
+     * Pins the delete in ProtobufSchemaLoader's finally block.
+     */
+    @Test
+    public void testLoadSchemaCleansUpItsStagingDirectory() throws Exception {
+        Path tmpDir = Path.of(System.getProperty("java.io.tmpdir"));
+        long before = countStagingDirectories(tmpDir);
+
+        assertNotNull(FileDescriptorUtils.protoFileToFileDescriptor(SIMPLE_PROTO_SCHEMA,
+                "test.proto", Optional.of("test.example")));
+
+        assertEquals(before, countStagingDirectories(tmpDir));
+    }
+
+    private static long countStagingDirectories(Path tmpDir) throws IOException {
+        try (Stream<Path> entries = Files.list(tmpDir)) {
+            return entries.filter(Files::isDirectory)
+                    .filter(p -> p.getFileName().toString().startsWith("apicurio-protobuf-schema-"))
+                    .count();
+        }
     }
 
     /**
