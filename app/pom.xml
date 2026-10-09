@@ -254,6 +254,20 @@
       <groupId>io.confluent</groupId>
       <artifactId>kafka-protobuf-serializer</artifactId>
       <scope>test</scope>
+      <!-- Confluent pulls Square Wire under the same package names antiwire ships; keeping both
+           on the classpath makes ProtoParser resolution order dependent. antiwire is the single
+           provider; the Confluent code paths that still need Wire's Kotlin Companion are tracked
+           as an antiwire finding in ANTIWIRE_MIGRATION.md. -->
+      <exclusions>
+        <exclusion>
+          <groupId>com.squareup.wire</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.squareup.okio</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>io.confluent</groupId>

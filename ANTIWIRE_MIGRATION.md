@@ -33,7 +33,16 @@ protobuf modules of Apicurio Registry. Goal: existing tests still pass, test log
   io.apicurio:wire-schema-java.
 - schema-util/protobuf and schema-validation/protobuf name no Wire dependency in their poms;
   they received it transitively and keep compiling without pom changes.
-- app and integration-tests receive the schema types transitively as well; no pom changes.
+- app and integration-tests receive the schema types transitively as well; no pom changes,
+  except one test scope exclusion in app/pom.xml: kafka-protobuf-serializer (Confluent 8.0.0)
+  pulls com.squareup.wire:wire-schema-jvm and wire-runtime-jvm 5.3.0 plus okio under the same
+  package names antiwire ships, which put two ProtoParser implementations on one classpath
+  and broke Confluent's ProtobufSchema at runtime with NoSuchFieldError on the Companion
+  field. The Square Wire and okio transitives are excluded there so antiwire is the single
+  provider; the Confluent code path that still calls the Companion form is finding 5 below.
+- utils/exportConfluent keeps Square Wire via its compile scoped kafka-schema-registry-client
+  and is left untouched: it does not depend on the protobuf utilities module, so its Wire
+  stack never shares a classpath with antiwire.
 
 ## Code changes, file by file
 
@@ -120,7 +129,26 @@ After migration, JDK 21, single locked Maven run per invocation:
   SUCCESS, single locked run from a worktree whose inter module dependencies resolved inside
   the reactor (so the utils classes under test are the migrated ones, not a stale local
   artifact).
-- Baseline on the unmodified base commit with Wire 6.4.0: recorded below when complete.
+- Baseline on the unmodified base commit with Wire 6.4.0 (worktree wt-antiwire-baseline at
+  25c8b5ce0, same JDK, same locked command shape): identical results, test class by test
+  class. FileDescriptorUtilsTest 37, ProtoContentTest 29, ProtobufCompatibilityCheckerTest
+  11, ProtobufCompatibilityCheckerLibraryTest 32, ProtobufValidatorTest 4,
+  ProtobufDeserializerFallbackTest 13, ProtobufSchemaParserTest 11, MessageIndexesUtilTest 4;
+  141 total, 0 failures, 0 errors, 0 skipped, BUILD SUCCESS. The comparison the goal asks
+  for: same number of tests, same pass/fail state on both sides.
+- App module protobuf coverage (ProtobufTagExtractorTest,
+  ProtobufStructuredContentExtractorTest, ProtobufSerdeTest, ProtobufExportTest), run with
+  the Confluent test exclusion below: ProtobufExportTest 8/8, ProtobufTagExtractorTest 7/7,
+  ProtobufStructuredContentExtractorTest 7/7 green; ProtobufSerdeTest 12 run, 10 pass, 2
+  errors, both testSerdeMix at line 256, both the single antiwire Companion gap (finding 5):
+  java.lang.NoSuchFieldError on ProtoParser$Companion from Confluent's
+  ProtobufSchema.toProtoFile. 32 of 34 green, 2 blocked on the planned antiwire Companion
+  restoration. The first run, before the exclusion, failed the same 2 with the same error
+  but from a classpath carrying both wire-schema 5.3.0 and antiwire.
+- Skipped suites: the integration-tests module is not run at all (needs Docker or Kafka;
+  this Mac has only podman, and the goal scopes testcontainers work out). The same applies
+  to the Docker bound app tests. utils/exportConfluent is untouched and untested here; it
+  keeps its own Square Wire stack via Confluent (see dependency changes).
 
 ## Findings for antiwire
 
@@ -142,6 +170,50 @@ After migration, JDK 21, single locked Maven run per invocation:
    future consumer from rediscovering this by javap.
 4. Companion.parse: known and coming; consumers use the static form meanwhile. No action
    needed beyond what is already planned on the antiwire side.
+5. The Kotlin Companion is not only a source level convenience: third party jars compiled
+   against Square Wire call it at runtime. Confluent's
+   io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema.toProtoFile (kafka-schema-
+   registry-client 8.0.0, ProtobufSchema.java line 681) crashed with
+   java.lang.NoSuchFieldError: ProtoParser does not have member field
+   'ProtoParser$Companion Companion' the moment antiwire's classes were the only ones on the
+   classpath. The planned Companion restoration is therefore load bearing for any consumer
+   that keeps binary compiled Wire dependencies; the exclusion experiment above is the
+   reproduction. Until it ships, ProtobufSerdeTest.testSerdeMix in the app module cannot pass
+   against antiwire (2 errors of 34 tests, all other 32 pass).
+6. Loading has no consumer legal in memory route. The old choreography was an in memory
+   FakeFileSystem; the only replacement the facade offers a consumer is real files, so this
+   branch stages into a per call temp directory (as prescribed). Two consequences worth an
+   antiwire side decision: (a) every schema operation now pays real filesystem work for
+   process constant content, roughly 90 metadata syscalls per call on a cold tmpdir, where
+   the old path touched memory only; (b) host filesystem semantics leak into schema
+   resolution, and a case insensitive default filesystem (macOS APFS) makes an import with
+   mismatched case resolve locally and fail on case sensitive CI or production. A
+   java.nio.file.FileSystem constructor does exist on the engine SchemaLoader, but the
+   loading-api-inventory explicitly scopes consumers to JdkSchemaLoader and forbids
+   importing SchemaLoader, so it is not a legal consumer route. Ask: either a JdkSchemaLoader
+   factory over a caller supplied java.nio FileSystem (Jimfs restores the old semantics one
+   for one), or a documented blessed in memory option.
+
+## Review round (2026-10-10 night)
+
+Four parallel review agents (reuse, simplification, efficiency, altitude) over the branch
+diff, then the accepted fixes applied: the hand rolled recursive delete replaced by Guava
+MoreFiles.deleteRecursively (guava is now a direct dependency of this module), the
+resolve/relativize round trip in the loader replaced by the expectedImportPath the staged
+file is written to (also removing a Windows separator dependency in the lookup key), the
+unreachable parent null guard and never firing REPLACE_EXISTING dropped from staging, and
+ProtoContent.writeTo became void now that nothing consumes its return. Skipped with reasons:
+consolidating ProtobufFile's parse fallback into FileDescriptorUtils.parseWithBinaryFallback
+(predates the branch and changes exception shapes, a parity risk), a shared helper for the
+six int[] range sites (their endpoint arithmetic is intentionally different: descriptor
+ranges are exclusive, the dynamic message API is inclusive), and moving the guava pin from
+the module pom into root dependencyManagement (a root level managed pin would also pin
+guava transitively in unrelated modules, a blast radius this spike must not have; the inline
+pin matches the existing precedent in examples/tools/kafkasql-topic-import). The efficiency
+review's shared prebuilt root (stage the 21 constant protos once per process and pass two
+roots to initRoots) and the altitude review's Jimfs based in memory root are recorded as
+follow ups rather than applied: the goal prescribes the JdkSchemaLoader plus temp directory
+shape, and finding 6 above is the right place for the underlying ask.
 
 ## Open problems
 

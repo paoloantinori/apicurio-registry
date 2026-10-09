@@ -1,22 +1,21 @@
 package io.apicurio.registry.utils.protobuf.schema;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.MoreFiles;
+import com.google.common.io.RecursiveDeleteOption;
 import com.squareup.wire.schema.JdkSchemaLoader;
 import com.squareup.wire.schema.ProtoFile;
 import com.squareup.wire.schema.Schema;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class ProtobufSchemaLoader {
 
@@ -50,14 +49,12 @@ public class ProtobufSchemaLoader {
         final ClassLoader classLoader = ProtobufSchemaLoader.class.getClassLoader();
         for (String proto : protos) {
             Path target = rootDirectory.resolve(protoPath + proto);
-            if (target.getParent() != null) {
-                Files.createDirectories(target.getParent());
-            }
+            Files.createDirectories(target.getParent());
             try (InputStream inputStream = classLoader.getResourceAsStream(protoPath + proto)) {
                 if (inputStream == null) {
                     throw new IOException("Missing pre-built proto resource: " + protoPath + proto);
                 }
-                Files.copy(inputStream, target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(inputStream, target);
             }
         }
     }
@@ -104,7 +101,7 @@ public class ProtobufSchemaLoader {
             for (ProtoContent proto : allDepencencies) {
                 proto.writeTo(rootDirectory);
             }
-            Path path = protoContent.writeTo(rootDirectory);
+            protoContent.writeTo(rootDirectory);
 
             // Step 4: Load the .proto using JdkSchemaLoader
             try (JdkSchemaLoader schemaLoader = new JdkSchemaLoader()) {
@@ -112,8 +109,7 @@ public class ProtobufSchemaLoader {
                         Collections.singletonList(rootDirectory));
 
                 Schema schema = schemaLoader.loadSchema();
-                String protoFilePath = rootDirectory.relativize(path).toString();
-                ProtoFile protoFile = schema.protoFile(protoFilePath);
+                ProtoFile protoFile = schema.protoFile(protoContent.getExpectedImportPath());
 
                 if (protoFile == null) {
                     throw new RuntimeException("Error loading Protobuf File: " + protoFileName);
@@ -122,22 +118,12 @@ public class ProtobufSchemaLoader {
                 return new ProtobufSchemaLoaderContext(schema, protoFile);
             }
         } finally {
-            deleteRecursively(rootDirectory);
-        }
-    }
-
-    private static void deleteRecursively(Path directory) {
-        // Best effort cleanup: a failed delete must not mask a schema error.
-        try (Stream<Path> files = Files.walk(directory)) {
-            files.sorted(Comparator.reverseOrder()).forEach(file -> {
-                try {
-                    Files.delete(file);
-                } catch (IOException e) {
-                    // ignored
-                }
-            });
-        } catch (IOException | UncheckedIOException e) {
-            // ignored
+            // Best effort cleanup: a failed delete must not mask a schema error.
+            try {
+                MoreFiles.deleteRecursively(rootDirectory, RecursiveDeleteOption.ALLOW_INSECURE);
+            } catch (IOException e) {
+                // ignored
+            }
         }
     }
 

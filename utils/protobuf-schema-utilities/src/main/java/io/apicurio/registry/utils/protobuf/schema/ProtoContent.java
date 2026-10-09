@@ -76,18 +76,12 @@ public class ProtoContent {
         this.content = pattern.matcher(this.content).replaceAll("$1" + updatedImportPath + "$3");
     }
 
-    public Path writeTo(Path rootDirectory) throws IOException {
+    public void writeTo(Path rootDirectory) throws IOException {
         Path path = rootDirectory.resolve(getExpectedImportPath());
-
-        // Create parent directory if it doesn't exist
-        Path parentDir = path.getParent();
-        if (parentDir != null) {
-            Files.createDirectories(parentDir);
-        }
+        Files.createDirectories(path.getParent());
 
         final byte[] schemaBytes = getContent().getBytes(StandardCharsets.UTF_8);
         Files.write(path, schemaBytes);
-        return path;
     }
 
 }
