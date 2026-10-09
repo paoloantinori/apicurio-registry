@@ -282,3 +282,15 @@ populated dependency maps through the rewritten code.
   io.apicurio:wire-schema-java 0.1.0-SNAPSHOT from 9d6423f; utils tests 66/66 green on the
   first run after the migration. Branch antiwire-integration on paoloantinori/apicurio-
   registry. One blocking-grade finding so far (the OneOf constructor, bridged locally).
+- Final handoff, delivered through herdr 2026-10-10 01:05 CEST: goal met and pushed, branch
+  antiwire-integration on paoloantinori/apicurio-registry at 00ce12ada (base 25c8b5ce0),
+  log in this file, antiwire built from 9d6423f. All four protobuf modules compile against
+  io.apicurio:wire-schema-java and their tests match the Wire baseline exactly, 141 tests
+  green with per-class counts identical. App module: 129 tests run, 3 errors, all one
+  cause, Confluent 8.0.0 calling the Kotlin Companion (ProtoParser$Companion) at runtime
+  through ProtobufSchema.toProtoFile line 681, so the planned Companion restoration is load
+  bearing for binary consumers. Findings: the OneOf constructor gap bridged locally via
+  OneOfFactory, the ReservedElement.getValues documentation gap, the Companion issue, and
+  the absence of a consumer legal in-memory loading route (temp directory staging cost and
+  case-sensitivity leak). integration-tests and exportConfluent decisions documented. No PR
+  opened, nothing pushed to origin.
