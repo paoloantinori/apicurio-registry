@@ -192,10 +192,8 @@
     <!-- Schema types -->
     <avro.version>1.12.2</avro.version>
     <json-schema-validator.version>1.5.9</json-schema-validator.version>
-    <wire-schema.version>6.4.0</wire-schema.version>
+    <antiwire.version>0.1.0-SNAPSHOT</antiwire.version>
     <okhttp.version>4.12.0</okhttp.version>
-    <okio.version>3.18.2</okio.version>
-    <kotlin-stdlib.version>2.4.21</kotlin-stdlib.version>
     <icu4j.version>78.3</icu4j.version>
     <protobuf.version>4.36.2</protobuf.version>
     <xmlsec.version>4.0.4</xmlsec.version>
@@ -746,14 +744,9 @@
         <version>${json-schema-validator.version}</version>
       </dependency>
       <dependency>
-        <groupId>com.squareup.wire</groupId>
-        <artifactId>wire-schema</artifactId>
-        <version>${wire-schema.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.squareup.wire</groupId>
-        <artifactId>wire-schema-jvm</artifactId>
-        <version>${wire-schema.version}</version>
+        <groupId>io.apicurio</groupId>
+        <artifactId>wire-schema-java</artifactId>
+        <version>${antiwire.version}</version>
       </dependency>
       <dependency>
         <groupId>com.ibm.icu</groupId>
@@ -762,28 +755,8 @@
       </dependency>
       <dependency>
         <groupId>com.squareup.okio</groupId>
-        <artifactId>okio</artifactId>
-        <version>${okio.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.squareup.okio</groupId>
-        <artifactId>okio-jvm</artifactId>
-        <version>${okio.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.squareup.okio</groupId>
         <artifactId>okhttp</artifactId>
         <version>${okhttp.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.squareup.okio</groupId>
-        <artifactId>okio-fakefilesystem</artifactId>
-        <version>${okio.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>org.jetbrains.kotlin</groupId>
-        <artifactId>kotlin-stdlib</artifactId>
-        <version>${kotlin-stdlib.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.protobuf</groupId>

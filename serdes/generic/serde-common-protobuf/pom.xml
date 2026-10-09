@@ -49,8 +49,8 @@
     </dependency>
 
     <dependency>
-      <groupId>com.squareup.wire</groupId>
-      <artifactId>wire-schema</artifactId>
+      <groupId>io.apicurio</groupId>
+      <artifactId>wire-schema-java</artifactId>
     </dependency>
 
     <dependency>

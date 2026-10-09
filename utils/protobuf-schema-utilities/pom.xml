@@ -29,27 +29,21 @@
     </dependency>
 
     <dependency>
-      <groupId>com.squareup.wire</groupId>
-      <artifactId>wire-schema</artifactId>
+      <groupId>io.apicurio</groupId>
+      <artifactId>wire-schema-java</artifactId>
     </dependency>
 
+    <!-- Was pulled transitively by com.squareup.wire:wire-schema-jvm; antiwire does not need it,
+         this module's code uses it directly. -->
     <dependency>
-      <groupId>com.squareup.wire</groupId>
-      <artifactId>wire-schema-jvm</artifactId>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava</artifactId>
+      <version>32.1.3-jre</version>
     </dependency>
+
     <dependency>
       <groupId>com.ibm.icu</groupId>
       <artifactId>icu4j</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.squareup.okio</groupId>
-      <artifactId>okio-jvm</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.squareup.okio</groupId>
-      <artifactId>okio-fakefilesystem</artifactId>
     </dependency>
 
     <dependency>
