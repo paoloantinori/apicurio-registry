@@ -40,7 +40,7 @@ public class ProtobufTagExtractor implements TagExtractor {
     public Map<String, Set<String>> extractTags(ContentHandle content) {
         try {
             Location location = Location.get("");
-            ProtoFileElement protoFile = ProtoParser.Companion.parse(location, content.content());
+            ProtoFileElement protoFile = ProtoParser.parse(location, content.content());
             Map<String, Set<String>> result = new LinkedHashMap<>();
             for (TypeElement type : protoFile.getTypes()) {
                 if (type instanceof MessageElement message) {

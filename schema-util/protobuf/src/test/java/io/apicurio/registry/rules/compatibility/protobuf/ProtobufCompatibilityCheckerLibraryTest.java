@@ -1323,9 +1323,9 @@ public class ProtobufCompatibilityCheckerLibraryTest {
                 """;
 
         FileDescriptor fileDescriptor = FileDescriptorUtils.toDescriptor("Envelope",
-                ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, envelopeSchema),
+                ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION, envelopeSchema),
                 Map.of("Detail.proto",
-                        ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, detailSchema))).getFile();
+                        ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION, detailSchema))).getFile();
 
         ProtobufFile registeredFile = new ProtobufFile(envelopeSchema);
 

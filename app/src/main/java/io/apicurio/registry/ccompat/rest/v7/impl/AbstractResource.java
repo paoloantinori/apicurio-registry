@@ -136,7 +136,7 @@ public abstract class AbstractResource {
             if (artifactType.equals(ArtifactType.PROTOBUF)) {
                 try {
                     // Try parsing as text first
-                    ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schemaContent.content());
+                    ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION, schemaContent.content());
                     // If successful, contentForRules is already correct (text format)
                 } catch (Exception e) {
                     // If text parsing fails, assume it's binary Base64 encoded FileDescriptorSet

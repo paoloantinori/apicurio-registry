@@ -9,7 +9,6 @@ import io.apicurio.registry.rules.compatibility.CompatibilityExecutionResult;
 import io.apicurio.registry.rules.compatibility.CompatibilityLevel;
 import io.apicurio.registry.rules.compatibility.SimpleCompatibilityDifference;
 import io.apicurio.registry.utils.protobuf.schema.ProtobufFile;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.HashSet;
 import java.util.List;
@@ -61,7 +60,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         }
     }
 
-    @NotNull
     private CompatibilityExecutionResult testFullTransitive(List<TypedContent> existingSchemas,
             ProtobufFile fileAfter) {
         Set<CompatibilityDifference> allDifferences = new HashSet<>();
@@ -79,7 +77,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         return CompatibilityExecutionResult.incompatibleOrEmpty(allDifferences);
     }
 
-    @NotNull
     private CompatibilityExecutionResult testFull(ProtobufFile fileBefore, ProtobufFile fileAfter) {
         Set<CompatibilityDifference> allDifferences = new HashSet<>();
         // Collect backward differences
@@ -93,7 +90,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         return CompatibilityExecutionResult.incompatibleOrEmpty(allDifferences);
     }
 
-    @NotNull
     private CompatibilityExecutionResult testForwardTransitive(List<TypedContent> existingSchemas,
             ProtobufFile fileAfter) {
         Set<CompatibilityDifference> allDifferences = new HashSet<>();
@@ -106,7 +102,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         return CompatibilityExecutionResult.incompatibleOrEmpty(allDifferences);
     }
 
-    @NotNull
     private CompatibilityExecutionResult testForward(ProtobufFile fileBefore, ProtobufFile fileAfter) {
         ProtobufCompatibilityCheckerLibrary checker = new ProtobufCompatibilityCheckerLibrary(fileAfter,
                 fileBefore);
@@ -114,7 +109,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         return CompatibilityExecutionResult.incompatibleOrEmpty(differences);
     }
 
-    @NotNull
     private CompatibilityExecutionResult testBackwardTransitive(List<TypedContent> existingSchemas,
             ProtobufFile fileAfter) {
         Set<CompatibilityDifference> allDifferences = new HashSet<>();
@@ -127,7 +121,6 @@ public class ProtobufCompatibilityChecker implements CompatibilityChecker {
         return CompatibilityExecutionResult.incompatibleOrEmpty(allDifferences);
     }
 
-    @NotNull
     private CompatibilityExecutionResult testBackward(ProtobufFile fileBefore, ProtobufFile fileAfter) {
         ProtobufCompatibilityCheckerLibrary checker = new ProtobufCompatibilityCheckerLibrary(fileBefore,
                 fileAfter);

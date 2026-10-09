@@ -21,7 +21,7 @@ public class ProtobufContentCanonicalizer implements ContentCanonicalizer {
     @Override
     public TypedContent canonicalize(TypedContent content, Map<String, TypedContent> resolvedReferences) {
         try {
-            ProtoFileElement fileElem = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+            ProtoFileElement fileElem = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                     content.getContent().content());
 
             // TODO maybe use FileDescriptorUtils to convert to a FileDescriptor and then convert back to

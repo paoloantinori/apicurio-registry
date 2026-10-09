@@ -273,7 +273,7 @@ final class ProtobufFqnConflictDetector {
      * Attempts to parse the raw content as a Wire text-form {@link ProtoFileElement}.
      * Mirror of {@link #tryParseAsBinaryDescriptor}: the single scoped {@code RuntimeException}
      * catch is a "try next strategy" signal, not an error-hiding wrapper — it is bounded
-     * to exactly the {@code ProtoParser.readProtoFile()} invocation and only converts
+     * to exactly the {@code ProtoParser.parse(...)} invocation and only converts
      * failure into a {@code null} return. The caller decides whether to try another
      * representation or to raise a domain-level violation.
      *
@@ -289,7 +289,7 @@ final class ProtobufFqnConflictDetector {
             return null;
         }
         try {
-            return new ProtoParser(Location.get(""), raw.toCharArray()).readProtoFile();
+            return ProtoParser.parse(Location.get(""), raw);
         } catch (RuntimeException notText) {
             return null;
         }

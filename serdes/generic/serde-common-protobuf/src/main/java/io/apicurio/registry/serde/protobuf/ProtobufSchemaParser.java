@@ -43,7 +43,7 @@ public class ProtobufSchemaParser<U extends Message> implements SchemaParser<Pro
             Map<String, ParsedSchema<ProtobufSchema>> resolvedReferences) {
         try {
             // textual .proto file
-            ProtoFileElement fileElem = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+            ProtoFileElement fileElem = ProtoParser.parse(FileDescriptorUtils.DEFAULT_LOCATION,
                     IoUtil.toString(rawSchema));
             Map<String, ProtoFileElement> dependencies = new HashMap<>();
             resolvedReferences.forEach((key, value) -> {
