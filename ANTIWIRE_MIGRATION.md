@@ -254,17 +254,61 @@ testParseProtoFileWithBinaryDependencies and
 testParseProtoFileAndDependenciesOnDifferentPackagesAndKnownType both drive loadSchema with
 populated dependency maps through the rewritten code.
 
+## Rerun against antiwire 98e1460 (2026-10-10)
+
+antiwire main moved to 98e1460 (TASK-33.2: Kotlin Companion form with the binary shape,
+public OneOf constructor, public MessageType.toElement(), DEC-15 on range elements).
+Rebuilt and installed from a clean fast forward of ~/data/repo/work/antiwire, then verified
+with javap before running anything: ProtoParser has the public static Companion field and
+Companion.parse(Location, String), OneOf has a public five argument constructor, and
+MessageType.toElement() is public.
+
+Results, same commands and same JDK 21 as the original run:
+
+- The three tests that failed on the Companion all pass: ProtobufSerdeTest.testSerdeMix [1]
+  and [2] (12 of 12 in the class), ConfluentClientTest.testSerdeProtobufSchema (65 of 65 in
+  the class). Per-testcase entries read from the fresh surefire XML, zero error or failure
+  elements in either file.
+- The regression set is green: ProtobufSerdeTest, ConfluentClientTest, JsonSchemaSerdeTest,
+  VersionNumberingTest, CCompatAuthTest, ProtobufTagExtractorTest,
+  ProtobufStructuredContentExtractorTest and ProtobufExportTest total 129 tests, 0 failures,
+  0 errors, 0 skipped, BUILD SUCCESS, versus 126 of 129 before. The Confluent exclusions in
+  app/pom.xml and integration-tests/pom.xml were left in place for this run.
+- No remaining exception, so the kotlin.ranges.IntRange hypothesis (Confluent's
+  ProtobufSchemaUtils branching on instanceof IntRange for ReservedElement and
+  ExtensionsElement values, against antiwire's int[] pairs, DEC-15) did not manifest in any
+  suite run here. Evidence on why: the schema both Confluent tests serialize,
+  TestCmmn.UUID, is proto3 with a single message and has zero reserved ranges, zero
+  reserved names and zero extension ranges (checked by loading the generated descriptor and
+  counting, not by reading the source). The hazard itself is real and verified in the
+  Confluent bytecode: in kafka-protobuf-provider 8.0.0 the two private
+  ProtobufSchemaUtils.toString overloads for ExtensionsElement and ReservedElement contain
+  instanceof and checkcast kotlin/ranges/IntRange plus getStart and getEndInclusive calls
+  (lambdas toString$5, $9, $16), so a proto2 or proto3 schema that declares reserved or
+  extension ranges and is formatted by Confluent code against antiwire will take the other
+  branch. None of the suites run here exercises that, so this is a verified latent gap and
+  not a demonstrated failure. A test of it would need a schema with "reserved 5 to 9;" or
+  "extensions 100 to 199;" pushed through the Confluent client.
+- The OneOfFactory bridge is gone (separate commit): the proto3 optional synthetic one of
+  is now built with the public constructor directly. The four protobuf modules' tests are
+  unchanged in count and green: utils 67, schema-util 43, validation 4, serde 28, 142 in
+  total (141 plus the cleanup test added in the review round), checkstyle clean for the
+  utils module.
+
+Finding status: finding 1 (public OneOf constructor) and finding 5 (Companion) are
+resolved on 98e1460; finding 3 (documentation of range value types) is superseded by
+DEC-15 on the antiwire side; findings 2 and 6 stand as written.
+
 ## Open problems
 
 - This branch does not build from a clean checkout: io.apicurio:wire-schema-java
-  0.1.0-SNAPSHOT exists only in the local ~/.m2, installed from antiwire 9d6423f (nothing
-  is published anywhere, by design). Building this branch requires cloning antiwire and
-  running its install first; this is inherent to the spike, not a defect of it.
-- ProtobufSerdeTest.testSerdeMix (2 parameterizations) and
-  ConfluentClientTest.testSerdeProtobufSchema are red by design until the antiwire
-  Companion restoration lands (finding 5, tracked for cleanup in REG-444 on the Apicurio
-  side). Three blocked tests out of the 129 app tests run; every other suite touched by
-  this migration is fully green.
+  0.1.0-SNAPSHOT exists only in the local ~/.m2, installed from antiwire (9d6423f for the
+  original run, 98e1460 for the rerun recorded below; nothing is published anywhere, by
+  design). Building this branch requires cloning antiwire and running its install first;
+  this is inherent to the spike, not a defect of it.
+- The three tests that were red on 9d6423f (ProtobufSerdeTest.testSerdeMix, 2
+  parameterizations, and ConfluentClientTest.testSerdeProtobufSchema) pass on 98e1460; see
+  the rerun section. No known red test remains in the suites run.
 - The app module's Confluent touching suites beyond the four first reported
   (JsonSchemaSerdeTest, VersionNumberingTest, ConfluentClientTest, CCompatAuthTest) are now
   included in the recorded runs; testcontainers bound suites remain out of scope on this
