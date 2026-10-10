@@ -313,6 +313,57 @@ ExtensionsElement.getValues(), finding 5 (Companion) is resolved, finding 4 need
 and finding 6 (no in memory loading route) stands as written. The original text of findings
 1 to 6 above is kept as the record of the first run.
 
+## Rerun against antiwire 62c8646 (2026-10-10, TASK-33.3 unchecked IOException)
+
+antiwire main moved to 62c8646, which removes checked IOException from public signatures
+where real Wire 7.1.0 declares no throws (they throw java.io.UncheckedIOException with the
+original as cause; methods upstream declares with @Throws keep it). Rebuilt and installed
+from a clean fast forward of ~/data/repo/work/antiwire.
+
+The predicted breakage did not occur: zero compile errors of the form "exception
+java.io.IOException is never thrown in body of corresponding try statement", zero source
+changes on this branch, zero test files touched. test-compile of the four protobuf modules,
+app and integration-tests (the latter with the dependency unpack step skipped, because that
+plugin execution needs a packaged reactor artifact and is unrelated to this change) all
+succeed.
+
+Why nothing needed to change, per handler, checked against the new installed jar with javap
+and against the antiwire sources rather than assumed. Every IOException in this branch's
+migrated code guards a call that still declares it:
+
+- ProtobufSchemaLoader.java, loadSchema, the try with resources around JdkSchemaLoader:
+  JdkSchemaLoader.initRoots, loadSchema and close, and the static forClasspath, all still
+  declare throws IOException in the new jar. JdkSchemaLoader is antiwire's own facade, not a
+  member of the upstream Wire API, so TASK-33.3 left its signatures alone.
+- ProtobufSchemaLoader.java, the best effort cleanup catch: guards Guava
+  MoreFiles.deleteRecursively, a Guava method.
+- ProtoContent.writeTo and ProtobufSchemaLoader.stagePrebuiltProtos: java.nio Files calls
+  and a classloader stream copy, nothing from antiwire.
+- FileDescriptorUtils.java, the two readAllBytes catches (around the main file and around
+  each dependency): java.nio Files.readAllBytes, nothing from antiwire.
+- ProtobufDereferencer.java: guards FileDescriptorProto.writeTo(OutputStream), a protobuf
+  java method.
+- ProtobufFile.java and the test helpers that mention IOException: Guava Files.readLines and
+  protobuf parseFrom, all outside antiwire.
+
+The calls this branch makes into antiwire that were affected by 62c8646 are the parser
+entry point and the schema model getters, and none of them ever declared IOException
+(ProtoParser.parse and Companion.parse, the element constructors, Schema.protoFile, the
+getX methods), so no handler of ours could be invalidated by it.
+
+Test results on 62c8646, same commands and JDK 21 as before:
+
+- four protobuf modules: utils 67, schema-util 43, validation 4, serde 28, 142 in total,
+  0 failures, 0 errors, 0 skipped, BUILD SUCCESS;
+- app regression set (the same eight suites): 129 tests, 0 failures, 0 errors, 0 skipped,
+  BUILD SUCCESS;
+- checkstyle:check on the four modules, BUILD SUCCESS.
+
+The Confluent range gap from the previous section was re-probed on 62c8646 with the same
+probe and this branch's app test classpath: unchanged, proto3 and "reserved 4;" print,
+"reserved 5 to 9;" and "extensions 100 to 199;" still throw IllegalArgumentException in
+ProtobufSchemaUtils.toString.
+
 ## Open problems
 
 - Confluent's ProtobufSchema.canonicalString() throws IllegalArgumentException for any
