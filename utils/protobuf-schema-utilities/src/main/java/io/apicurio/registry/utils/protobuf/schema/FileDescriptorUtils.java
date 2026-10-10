@@ -1017,8 +1017,8 @@ public class FileDescriptorUtils {
      * method generates the synthetic one-of from a Proto3 optional field.
      */
     private static OneOf getProto3OptionalField(Field field) {
-        return OneOfFactory.create("_" + field.getName(), "", Collections.singletonList(field),
-                field.getLocation(), field.getOptions());
+        return new OneOf("_" + field.getName(), "", Collections.singletonList(field), field.getLocation(),
+                field.getOptions());
     }
 
     private static EnumDescriptorProto enumElementToProto(EnumType enumElem) {
