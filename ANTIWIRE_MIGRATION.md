@@ -363,3 +363,16 @@ and finding 6 (no in memory loading route) stands as written. The original text 
   the absence of a consumer legal in-memory loading route (temp directory staging cost and
   case-sensitivity leak). integration-tests and exportConfluent decisions documented. No PR
   opened, nothing pushed to origin.
+- Rerun report for antiwire 98e1460, 2026-10-10. The herdr delivery to antiwire-83 failed
+  (bird.lan unreachable over SSH, 100 percent packet loss), so this is the same text as the
+  message: PASS ProtobufSerdeTest.testSerdeMix [1] and [2] and
+  ConfluentClientTest.testSerdeProtobufSchema; regression set 129 of 129 (126 of 129
+  before); four protobuf modules 142 green; no remaining exception in any suite. The
+  IntRange hypothesis is not the cause of any failure because both tests use TestCmmn.UUID,
+  proto3 with one message and no reserved or extension ranges (counted from the
+  descriptor). The hazard is real and reproduced with a plain probe on this branch's
+  classpath: Confluent ProtobufSchema.canonicalString() throws IllegalArgumentException at
+  ProtobufSchemaUtils.java:726 for "reserved 5 to 9;" and at :761 for "extensions 100 to
+  199;"; "reserved 4;" and proto3 print fine. No suite covers ranges (REG-447 on the
+  Apicurio side). OneOfFactory removed in commit 5c879c506. Branch tip at the time of
+  writing is the commit that contains this paragraph on the fork, never origin.
