@@ -10,7 +10,8 @@ protobuf modules of Apicurio Registry. Goal: existing tests still pass, test log
 - antiwire built from commit 9d6423f59463cd6e953422e7816b203ff4c7d080 (Apicurio/antiwire main,
   2026-10-09), installed into ~/.m2 with JDK 21.0.10 Temurin, tests skipped, deploy skipped.
   Artifacts: wire-schema-java and wire-runtime-java 0.1.0-SNAPSHOT, both timestamped the night
-  of the build.
+  of the build. Rebuilt and reinstalled from 98e1460210eda18338a6bdf232ff2b0ce1f6aee7 on
+  2026-10-10 for the rerun section; the sections before it describe the 9d6423f run.
 - Apicurio base commit: 25c8b5ce0 (origin/main of Apicurio/apicurio-registry, 2026-10-09).
 - Branch: antiwire-integration, cut from origin/main, pushed to the fork
   paoloantinori/apicurio-registry, never to origin. No PR opened.
@@ -67,13 +68,14 @@ utils/protobuf-schema-utilities:
   message reserved and extension walks read the linked models messageElem.reserveds() and
   messageElem.getExtensionsList() instead of the package private toElement() round trip (their
   getValues() use the same carrier convention); the synthetic proto3 optional OneOf is built
-  through the OneOfFactory bridge (see findings).
+  through the OneOfFactory bridge, removed in 5c879c506 once antiwire 98e1460 made the
+  constructor public (see the rerun section).
 - ProtobufFile.java: the private instance ProtoParser constructor is not callable in
   antiwire, so toProtoFileElement uses the static ProtoParser.parse; the reserved IntRange
   branch handles the int[] pair.
 - new file com/squareup/wire/schema/OneOfFactory.java in this module: package bridge to the
-  package private OneOf constructor (see findings). Deleted as soon as antiwire exposes a
-  public factory.
+  package private OneOf constructor. Existed from the first run until 5c879c506, which
+  deleted it; no longer part of the branch.
 - FileDescriptorUtilsTest.java: seven ProtoParser.Companion.parse invocations switched to
   ProtoParser.parse. No assertion or test logic changed.
 
@@ -120,7 +122,9 @@ integration-tests:
 
 ## Test evidence
 
-After migration, JDK 21, single locked Maven run per invocation:
+Original run against antiwire 9d6423f (counts here predate the review round test and the
+98e1460 rerun, see the rerun section for the current 142 and 129). JDK 21, single locked
+Maven run per invocation:
 
 - utils/protobuf-schema-utilities: Tests run: 66, Failures: 0, Errors: 0, Skipped: 0
   (FileDescriptorUtilsTest 37, ProtoContentTest 29), BUILD SUCCESS. This includes every
@@ -156,7 +160,7 @@ After migration, JDK 21, single locked Maven run per invocation:
 - The four additional Confluent touching app suites from the maintainer review
   (JsonSchemaSerdeTest 24, VersionNumberingTest 1, CCompatAuthTest 5, ConfluentClientTest
   65): 95 tests, 94 green, 1 error, ConfluentClientTest.testSerdeProtobufSchema line 132,
-  the identical Companion NoSuchFieldError. Combined app tally across the six suites: 129
+  the identical Companion NoSuchFieldError. Combined app tally across the eight suites: 129
   tests, 3 errors, all three the same antiwire Companion gap, nothing else. The
   integration-tests module test-compiles cleanly with its exclusion (BUILD SUCCESS) but was
   never executed here, and after the exclusion the app dependency tree contains no
@@ -176,7 +180,8 @@ After migration, JDK 21, single locked Maven run per invocation:
    Fields from FieldElements and loses the linked types. Needed: a public static factory or
    public constructor with signature (String name, String documentation, List<Field> fields,
    Location location, Options options). Workaround on this branch: the OneOfFactory bridge
-   class placed in package com.squareup.wire.schema inside the utils module.
+   class placed in package com.squareup.wire.schema inside the utils module. [Resolved on
+   98e1460, bridge deleted in 5c879c506.]
 2. MessageType.toElement() is package private while the upstream 6.4.0 surface exposed it.
    Not blocking: the public reserveds() and getExtensionsList() linked models carry the same
    values. Exposing toElement() would still shorten ports of code shaped like
@@ -274,36 +279,56 @@ Results, same commands and same JDK 21 as the original run:
   ProtobufStructuredContentExtractorTest and ProtobufExportTest total 129 tests, 0 failures,
   0 errors, 0 skipped, BUILD SUCCESS, versus 126 of 129 before. The Confluent exclusions in
   app/pom.xml and integration-tests/pom.xml were left in place for this run.
-- No remaining exception, so the kotlin.ranges.IntRange hypothesis (Confluent's
-  ProtobufSchemaUtils branching on instanceof IntRange for ReservedElement and
-  ExtensionsElement values, against antiwire's int[] pairs, DEC-15) did not manifest in any
-  suite run here. Evidence on why: the schema both Confluent tests serialize,
-  TestCmmn.UUID, is proto3 with a single message and has zero reserved ranges, zero
-  reserved names and zero extension ranges (checked by loading the generated descriptor and
-  counting, not by reading the source). The hazard itself is real and verified in the
-  Confluent bytecode: in kafka-protobuf-provider 8.0.0 the two private
-  ProtobufSchemaUtils.toString overloads for ExtensionsElement and ReservedElement contain
-  instanceof and checkcast kotlin/ranges/IntRange plus getStart and getEndInclusive calls
-  (lambdas toString$5, $9, $16), so a proto2 or proto3 schema that declares reserved or
-  extension ranges and is formatted by Confluent code against antiwire will take the other
-  branch. None of the suites run here exercises that, so this is a verified latent gap and
-  not a demonstrated failure. A test of it would need a schema with "reserved 5 to 9;" or
-  "extensions 100 to 199;" pushed through the Confluent client.
-- The OneOfFactory bridge is gone (separate commit): the proto3 optional synthetic one of
-  is now built with the public constructor directly. The four protobuf modules' tests are
-  unchanged in count and green: utils 67, schema-util 43, validation 4, serde 28, 142 in
-  total (141 plus the cleanup test added in the review round), checkstyle clean for the
-  utils module.
+- No remaining exception in any suite run, so the three Companion failures were the whole
+  story for those tests and kotlin.ranges.IntRange did not cause any of them. Evidence on
+  why: the schema both Confluent tests serialize, TestCmmn.UUID, is proto3 with a single
+  message and has zero reserved ranges, zero reserved names and zero extension ranges
+  (checked by loading the generated descriptor and counting, not by reading the source), so
+  neither test can reach a range branch.
+- The IntRange hazard is nevertheless real and reproduced here, outside the test suite.
+  Using the exact app test classpath of this branch (antiwire 98e1460 plus Confluent
+  kafka-protobuf-provider 8.0.0, no Square Wire), a plain Java probe builds a
+  io.confluent.kafka.schemaregistry.protobuf.ProtobufSchema and calls canonicalString():
+  proto3 with no ranges and proto2 with "reserved 4;" print correctly;
+  "reserved 5 to 9;" throws IllegalArgumentException at ProtobufSchemaUtils.java:726 and
+  "extensions 100 to 199;" throws IllegalArgumentException at ProtobufSchemaUtils.java:761.
+  The cause is in Confluent's bytecode: the private ProtobufSchemaUtils.toString overloads
+  for ReservedElement and ExtensionsElement test instanceof kotlin/ranges/IntRange and
+  call getStart and getEndInclusive on it, while antiwire returns int[] {start,
+  endInclusive} pairs (DEC-15 on the antiwire side, which measured the same thing). Only
+  schemas that declare a range are affected, in proto2 or proto3, and only when Confluent
+  code formats them. No suite in this repository exercises that path, so a green run says
+  nothing about it; it is an open consumer limit, not a test failure here.
+- The OneOfFactory bridge is gone (separate commit, 5c879c506): the proto3 optional
+  synthetic one of is built with the public constructor directly. The four protobuf modules
+  stay green with one more test than the original run, the review round cleanup test:
+  utils 67 (FileDescriptorUtilsTest 38, ProtoContentTest 29), schema-util 43, validation 4,
+  serde 28, 142 in total against the 141 baseline, plus checkstyle:check on the utils
+  module, BUILD SUCCESS.
 
-Finding status: finding 1 (public OneOf constructor) and finding 5 (Companion) are
-resolved on 98e1460; finding 3 (documentation of range value types) is superseded by
-DEC-15 on the antiwire side; findings 2 and 6 stand as written.
+Finding status on 98e1460: finding 1 (public OneOf constructor) is resolved, finding 2
+(MessageType.toElement()) is resolved, finding 3 (documenting the range value types) is
+resolved by antiwire's javadoc on ReservedElement.getValues() and
+ExtensionsElement.getValues(), finding 5 (Companion) is resolved, finding 4 needs nothing,
+and finding 6 (no in memory loading route) stands as written. The original text of findings
+1 to 6 above is kept as the record of the first run.
 
 ## Open problems
 
+- Confluent's ProtobufSchema.canonicalString() throws IllegalArgumentException for any
+  schema that declares a reserved or extension range ("reserved 5 to 9;", "extensions 100
+  to 199;") when running against antiwire, because Confluent 8.0.0 tests
+  instanceof kotlin.ranges.IntRange and antiwire returns int[] pairs (DEC-15). Reproduced
+  with a plain Java probe on this branch's test classpath, see the rerun section. No suite
+  here covers it, so this is invisible to the green runs. Impact is on any consumer that
+  formats range bearing schemas through Confluent code, for example the ccompat endpoints
+  when a client registers such a schema through Confluent's own client library; Apicurio's
+  own code is adapted and unaffected. The decision belongs to antiwire (DEC-15 is marked
+  open to reconsideration); a regression test on the Apicurio side should wait for that
+  decision so it asserts the final behavior.
 - This branch does not build from a clean checkout: io.apicurio:wire-schema-java
   0.1.0-SNAPSHOT exists only in the local ~/.m2, installed from antiwire (9d6423f for the
-  original run, 98e1460 for the rerun recorded below; nothing is published anywhere, by
+  original run, 98e1460 for the rerun above; nothing is published anywhere, by
   design). Building this branch requires cloning antiwire and running its install first;
   this is inherent to the spike, not a defect of it.
 - The three tests that were red on 9d6423f (ProtobufSerdeTest.testSerdeMix, 2
