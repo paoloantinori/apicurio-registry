@@ -427,3 +427,105 @@ ProtobufSchemaUtils.toString.
   199;"; "reserved 4;" and proto3 print fine. No suite covers ranges (REG-447 on the
   Apicurio side). OneOfFactory removed in commit 5c879c506. Branch tip at the time of
   writing is the commit that contains this paragraph on the fork, never origin.
+
+## Integration tests under podman (TASK-37)
+
+Request from the antiwire session: run the Apicurio integration tests that touch protobuf
+schemas on this branch with podman as the container runtime, then the same classes on the
+base commit with the original Wire. Result: they run under podman, and branch and base give
+identical counts. No source or test file was changed and nothing was pushed to origin.
+
+Environment, 2026-10-11:
+
+- Host: macOS 26.7.1 arm64, JDK 21.0.10 Temurin, Maven wrapper 3.9.8, antiwire built from
+  62c8646 and installed in ~/.m2.
+- podman client 6.1.3, podman engine 6.0.0 (Docker compatible API 1.44, minimum 1.24),
+  machine podman-machine-default, applehv, 4 CPUs, 8 GiB, rootless. A second machine
+  ("crack", libkrun) was also running and was not used.
+- Testcontainers 2.0.5 and strimzi-test-container 0.117.0, which starts the Kafka container
+  quay.io/strimzi-test-container/test-container:0.117.0-kafka-4.3.1.
+- Branch worktree wt-antiwire-it at 2e5158fed (antiwire 62c8646 on the classpath); base
+  worktree wt-antiwire-baseline at 25c8b5ce0 (Square Wire 6.4.0, okio 3.18.2).
+
+Setup. The podman machine already exposes a Docker compatible API socket on the host, so
+`podman system service` did not have to be started by hand. The path that
+`podman info` prints (/run/user/501/podman/podman.sock) is inside the VM; the host side
+path comes from `podman machine inspect podman-machine-default --format
+'{{.ConnectionInfo.PodmanSocket.Path}}'` and answers /_ping with OK. The environment used
+for every run (kept in /tmp/podman-env.sh):
+
+    export DOCKER_HOST="unix://$(podman machine inspect podman-machine-default \
+        --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+    export TESTCONTAINERS_RYUK_DISABLED=true
+    export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/run/user/501/podman/podman.sock
+    export JAVA_HOME=$HOME/.sdkman/candidates/java/21.0.10-tem
+
+TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE was set as a precaution; whether it is required was
+not tested separately. An existing ~/.testcontainers.properties already selected the unix
+socket client strategy. Ryuk is disabled, which Testcontainers logs as a warning on every
+start; the containers were stopped by the framework and podman showed none left over.
+
+Selecting the classes. `grep -rli protobuf integration-tests/src/test` lists generated
+message classes plus three test classes that exercise the migrated code at runtime:
+ProtobufSerdeIT (17 tests, group serdes, starts a Kafka container), SerdesPerformanceIT (6
+tests, Apicurio and Confluent protobuf serializers) and AllArtifactTypesIT (11 tests, group
+smoke, registers and compares a protobuf artifact). JsonSchemaSerdeIT only mentions protobuf
+in a commented line and was not run.
+
+Commands, identical on both worktrees except for the working directory:
+
+    . /tmp/podman-env.sh
+    ./mvnw -B -Pintegration-tests verify -pl integration-tests -am \
+        -Dit.test='ProtobufSerdeIT,AllArtifactTypesIT,SerdesPerformanceIT' \
+        -Dtest=NoSuchUnitTest -DfailIfNoTests=false \
+        -Dsurefire.failIfNoSpecifiedTests=false \
+        -Dgroups='smoke | serdes' -Dmdep.skip=true
+
+Notes on the flags. `-am` is required: without it the module cannot resolve its sibling
+SNAPSHOT dependencies and fails in dependency resolution before any test starts, which is
+what the first attempt of this task hit. `-Dtest=NoSuchUnitTest` stops the unit tests of
+the upstream modules from running under the same `-Dit.test` filter. `-Dmdep.skip=true`
+skips the `unpack-static-resources` plugin execution, which otherwise fails with
+"Artifact has not been packaged yet" (MDEP-98) in a reactor that has not run `package`
+first. The branch was packaged once beforehand with `-Pintegration-tests -DskipTests
+-DskipITs package -pl integration-tests -am`.
+
+Counts, same JDK, same podman, run one after another under the Maven lock:
+
+| Class | Branch (antiwire 62c8646) | Base (Wire 6.4.0) |
+|---|---|---|
+| ProtobufSerdeIT | 17 run, 0 failures, 0 errors, 0 skipped, 121.5 s | 17 run, 0 failures, 0 errors, 0 skipped, 69.7 s |
+| SerdesPerformanceIT | 6 run, 0 failures, 0 errors, 0 skipped, 23.9 s | 6 run, 0 failures, 0 errors, 0 skipped, 26.5 s |
+| AllArtifactTypesIT | 11 run, 0 failures, 0 errors, 0 skipped, 36.0 s | 11 run, 0 failures, 0 errors, 0 skipped, 34.7 s |
+| Total | 34 run, 0 failures | 34 run, 0 failures |
+
+The branch ran ProtobufSerdeIT on its own first (17 of 17), then the other two classes
+together (17 of 17); the base ran all three in one invocation (34 of 34). The 121.5 s
+against 69.7 s for ProtobufSerdeIT is one sample each on a shared machine, includes the
+first pull of the Kafka image on the branch run, and is not evidence of a performance
+difference.
+
+Evidence that the runs used podman and the intended Wire stack, read from the artifacts and
+not assumed:
+
+- The podman event log for the run shows the Kafka container created and started from
+  quay.io/strimzi-test-container/test-container:0.117.0-kafka-4.3.1, and the KafkaFacade
+  log line "Starting kafka container (attempt 1/2)" at 10:14:46.
+- The packaged registry used by the integration tests carries
+  io.apicurio.wire-schema-java-0.1.0-SNAPSHOT and wire-runtime-java-0.1.0-SNAPSHOT and no
+  com.squareup.wire jar on the branch; on the base it carries wire-schema 6.4.0, wire-runtime
+  6.4.0 and okio 3.18.2.
+- On the branch the integration tests' own classpath contains okio 2.7.0 (from the Confluent
+  test dependencies) next to antiwire and no Square Wire, which is the result of the
+  exclusions in integration-tests/pom.xml. These were previously compile verified only; they
+  are now exercised at runtime by ProtobufSerdeIT and SerdesPerformanceIT, both of which use
+  the Confluent protobuf serializer, with no NoSuchFieldError and no duplicate class
+  problem.
+
+What this does not cover. Only the three classes above were run, not the whole
+integration-tests module, and not the groups that need Keycloak, Elasticsearch,
+Debezium, a second registry or a Kubernetes cluster. The default storage variant of the
+local jar run was used; the other storage variants were not exercised. The schemas used by
+these tests have no reserved or extension ranges, so the Confluent range gap recorded under
+Open problems (REG-447) is not touched by them. No test failed, so there are no stack
+frames to record.
