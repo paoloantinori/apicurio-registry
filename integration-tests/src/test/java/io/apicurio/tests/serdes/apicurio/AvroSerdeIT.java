@@ -322,93 +322,95 @@ public class AvroSerdeIT extends ApicurioRegistryBaseIT {
         Consumer<String, GenericRecord> consumer = tester.createConsumer(StringDeserializer.class,
                 AvroKafkaDeserializer.class, topicName);
 
-        // Produce and consume messages for the first version of the schema.
-        tester.produceMessages(producer, topicName, avroSchema::generateRecord, messageCount, true);
-        tester.consumeMessages(consumer, topicName, messageCount, avroSchema::validateRecord);
+        try {
+            // Produce and consume messages for the first version of the schema.
+            tester.produceMessages(producer, topicName, avroSchema::generateRecord, messageCount, true);
+            tester.consumeMessages(consumer, topicName, messageCount, avroSchema::validateRecord);
 
-        // Prepare the second version of the schema, for it to be different, a new field is added.
-        String schemaKey2 = "key2" + System.currentTimeMillis();
-        AvroGenericRecordSchemaFactory avroSchema2 = new AvroGenericRecordSchemaFactory(recordNamespace,
-                recordName, List.of(schemaKey, schemaKey2));
+            // Prepare the second version of the schema, for it to be different, a new field is added.
+            String schemaKey2 = "key2" + System.currentTimeMillis();
+            AvroGenericRecordSchemaFactory avroSchema2 = new AvroGenericRecordSchemaFactory(recordNamespace,
+                    recordName, List.of(schemaKey, schemaKey2));
 
-        String avroSchemaString2 = avroSchema2.generateSchema().toString();
-        logger.info("Registering Avro Schema 2: {}", avroSchemaString2);
+            String avroSchemaString2 = avroSchema2.generateSchema().toString();
+            logger.info("Registering Avro Schema 2: {}", avroSchemaString2);
 
-        createArtifactVersion(recordNamespace, artifactId, avroSchemaString2, ContentTypes.APPLICATION_JSON,
-                null);
+            createArtifactVersion(recordNamespace, artifactId, avroSchemaString2, ContentTypes.APPLICATION_JSON,
+                    null);
 
-        // We produce messages for both, the old schema version, and the new one.
-        produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
-        produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema);
+            // We produce messages for both, the old schema version, and the new one.
+            produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
+            produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema);
 
-        if (!reuseClients) {
-            consumer = tester.createConsumer(StringDeserializer.class, AvroKafkaDeserializer.class,
-                    topicName);
+            if (!reuseClients) {
+                consumer = tester.createConsumer(StringDeserializer.class, AvroKafkaDeserializer.class,
+                        topicName);
+            }
+            // Messages for both schemas are consumed, expecting the same number.
+            {
+                AtomicInteger schema1Counter = new AtomicInteger(0);
+                AtomicInteger schema2Counter = new AtomicInteger(0);
+                tester.consumeMessages(consumer, topicName, messageCount * 2, record -> {
+                    if (avroSchema.validateRecord(record)) {
+                        schema1Counter.incrementAndGet();
+                        return true;
+                    }
+                    if (avroSchema2.validateRecord(record)) {
+                        schema2Counter.incrementAndGet();
+                        return true;
+                    }
+                    return false;
+                });
+                assertEquals(schema1Counter.get(), schema2Counter.get());
+            }
+
+            String schemaKey3 = "key3" + System.currentTimeMillis();
+            AvroGenericRecordSchemaFactory avroSchema3 = new AvroGenericRecordSchemaFactory(recordNamespace,
+                    recordName, List.of(schemaKey, schemaKey2, schemaKey3));
+
+            String avroSchemaString3 = avroSchema3.generateSchema().toString();
+            logger.info("Registering Avro Schema 3: {}", avroSchemaString3);
+
+            createArtifactVersion(recordNamespace, artifactId, avroSchemaString3, ContentTypes.APPLICATION_JSON,
+                    null);
+
+            produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema3);
+            produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
+            produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema);
+
+            if (!reuseClients) {
+                consumer = tester.createConsumer(StringDeserializer.class, AvroKafkaDeserializer.class,
+                        topicName);
+            }
+
+            // Consume messages from the topic, we must have the sam number of messages for each separate artifact
+            // version
+            {
+                AtomicInteger schema1Counter = new AtomicInteger(0);
+                AtomicInteger schema2Counter = new AtomicInteger(0);
+                AtomicInteger schema3Counter = new AtomicInteger(0);
+                tester.consumeMessages(consumer, topicName, messageCount * 3, record -> {
+                    if (avroSchema.validateRecord(record)) {
+                        schema1Counter.incrementAndGet();
+                        return true;
+                    }
+                    if (avroSchema2.validateRecord(record)) {
+                        schema2Counter.incrementAndGet();
+                        return true;
+                    }
+                    if (avroSchema3.validateRecord(record)) {
+                        schema3Counter.incrementAndGet();
+                        return true;
+                    }
+                    return false;
+                });
+                assertEquals(schema1Counter.get(), schema2Counter.get());
+                assertEquals(schema1Counter.get(), schema3Counter.get());
+            }
+        } finally {
+            IoUtil.closeIgnore(producer);
+            IoUtil.closeIgnore(consumer);
         }
-        // Messages for both schemas are consumed, expecting the same number.
-        {
-            AtomicInteger schema1Counter = new AtomicInteger(0);
-            AtomicInteger schema2Counter = new AtomicInteger(0);
-            tester.consumeMessages(consumer, topicName, messageCount * 2, record -> {
-                if (avroSchema.validateRecord(record)) {
-                    schema1Counter.incrementAndGet();
-                    return true;
-                }
-                if (avroSchema2.validateRecord(record)) {
-                    schema2Counter.incrementAndGet();
-                    return true;
-                }
-                return false;
-            });
-            assertEquals(schema1Counter.get(), schema2Counter.get());
-        }
-
-        String schemaKey3 = "key3" + System.currentTimeMillis();
-        AvroGenericRecordSchemaFactory avroSchema3 = new AvroGenericRecordSchemaFactory(recordNamespace,
-                recordName, List.of(schemaKey, schemaKey2, schemaKey3));
-
-        String avroSchemaString3 = avroSchema3.generateSchema().toString();
-        logger.info("Registering Avro Schema 3: {}", avroSchemaString3);
-
-        createArtifactVersion(recordNamespace, artifactId, avroSchemaString3, ContentTypes.APPLICATION_JSON,
-                null);
-
-        produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema3);
-        produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
-        produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema);
-
-        if (!reuseClients) {
-            consumer = tester.createConsumer(StringDeserializer.class, AvroKafkaDeserializer.class,
-                    topicName);
-        }
-
-        // Consume messages from the topic, we must have the sam number of messages for each separate artifact
-        // version
-        {
-            AtomicInteger schema1Counter = new AtomicInteger(0);
-            AtomicInteger schema2Counter = new AtomicInteger(0);
-            AtomicInteger schema3Counter = new AtomicInteger(0);
-            tester.consumeMessages(consumer, topicName, messageCount * 3, record -> {
-                if (avroSchema.validateRecord(record)) {
-                    schema1Counter.incrementAndGet();
-                    return true;
-                }
-                if (avroSchema2.validateRecord(record)) {
-                    schema2Counter.incrementAndGet();
-                    return true;
-                }
-                if (avroSchema3.validateRecord(record)) {
-                    schema3Counter.incrementAndGet();
-                    return true;
-                }
-                return false;
-            });
-            assertEquals(schema1Counter.get(), schema2Counter.get());
-            assertEquals(schema1Counter.get(), schema3Counter.get());
-        }
-
-        IoUtil.closeIgnore(producer);
-        IoUtil.closeIgnore(consumer);
     }
 
     /**
