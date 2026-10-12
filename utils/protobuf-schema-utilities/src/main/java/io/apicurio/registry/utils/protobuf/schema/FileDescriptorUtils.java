@@ -23,6 +23,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.Base64;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -937,29 +939,11 @@ public class FileDescriptorUtils {
             addedOneOfs.add(oneOf);
         }
 
-        for (ReservedElement reserved : messageElem.toElement().getReserveds()) {
-            for (Object elem : reserved.getValues()) {
-                if (elem instanceof String) {
-                    message.protoBuilder().addReservedName((String) elem);
-                }
-                else if (elem instanceof Integer) {
-                    int tag = (Integer) elem;
-                    DescriptorProto.ReservedRange.Builder rangeBuilder = DescriptorProto.ReservedRange
-                            .newBuilder().setStart(tag).setEnd(tag + 1);
-                    message.protoBuilder().addReservedRange(rangeBuilder.build());
-                }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
-                    DescriptorProto.ReservedRange.Builder rangeBuilder = DescriptorProto.ReservedRange
-                            .newBuilder().setStart(range.getStart()).setEnd(range.getEndInclusive() + 1);
-                    message.protoBuilder().addReservedRange(rangeBuilder.build());
-                }
-                else {
-                    throw new IllegalStateException(
-                            "Unsupported reserved type: " + elem.getClass().getName());
-                }
-            }
-        }
+        forEachReserved(messageElem.toElement().getReserveds(),
+                name -> message.protoBuilder().addReservedName(name),
+                (start, endInclusive) -> message.protoBuilder().addReservedRange(
+                        DescriptorProto.ReservedRange.newBuilder().setStart(start).setEnd(endInclusive + 1)
+                                .build()));
         for (ExtensionsElement extensions : messageElem.toElement().getExtensions()) {
             for (Object elem : extensions.getValues()) {
                 if (elem instanceof Integer) {
@@ -1035,28 +1019,10 @@ public class FileDescriptorUtils {
             builder.addValue(EnumValueDescriptorProto.newBuilder().setName(constant.getName())
                     .setNumber(constant.getTag()).build());
         }
-        for (ReservedElement reserved : enumElem.toElement().getReserveds()) {
-            for (Object elem : reserved.getValues()) {
-                if (elem instanceof String) {
-                    builder.addReservedName((String) elem);
-                }
-                else if (elem instanceof Integer) {
-                    int tag = (Integer) elem;
-                    builder.addReservedRange(
-                            EnumDescriptorProto.EnumReservedRange.newBuilder().setStart(tag).setEnd(tag));
-                }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
-                    // The end of an enum reserved range is inclusive, unlike a message reserved range.
-                    builder.addReservedRange(EnumDescriptorProto.EnumReservedRange.newBuilder()
-                            .setStart(range.getStart()).setEnd(range.getEndInclusive()));
-                }
-                else {
-                    throw new IllegalStateException(
-                            "Unsupported reserved type: " + elem.getClass().getName());
-                }
-            }
-        }
+        // The end of an enum reserved range is inclusive, unlike a message reserved range.
+        forEachReserved(enumElem.toElement().getReserveds(), builder::addReservedName,
+                (start, endInclusive) -> builder.addReservedRange(EnumDescriptorProto.EnumReservedRange
+                        .newBuilder().setStart(start).setEnd(endInclusive)));
         return builder.build();
     }
 
@@ -1781,25 +1747,7 @@ public class FileDescriptorUtils {
             message.addField(label, fieldType, field.getName(), field.getTag(), defaultVal, jsonName,
                     isPacked);
         }
-        for (ReservedElement reserved : messageElem.getReserveds()) {
-            for (Object elem : reserved.getValues()) {
-                if (elem instanceof String) {
-                    message.addReservedName((String) elem);
-                }
-                else if (elem instanceof Integer) {
-                    int tag = (Integer) elem;
-                    message.addReservedRange(tag, tag);
-                }
-                else if (elem instanceof IntRange) {
-                    IntRange range = (IntRange) elem;
-                    message.addReservedRange(range.getStart(), range.getEndInclusive());
-                }
-                else {
-                    throw new IllegalStateException(
-                            "Unsupported reserved type: " + elem.getClass().getName());
-                }
-            }
-        }
+        forEachReserved(messageElem.getReserveds(), message::addReservedName, message::addReservedRange);
         Boolean isMapEntry = findOption("map_entry", messageElem.getOptions())
                 .map(o -> Boolean.valueOf(o.getValue().toString())).orElse(null);
         if (isMapEntry != null) {
@@ -1812,25 +1760,24 @@ public class FileDescriptorUtils {
         return options.stream().filter(o -> o.getName().equals(name)).findFirst();
     }
 
-    private static EnumDefinition toDynamicEnum(EnumElement enumElem) {
-        Boolean allowAlias = findOption("allow_alias", enumElem.getOptions())
-                .map(o -> Boolean.valueOf(o.getValue().toString())).orElse(null);
-        EnumDefinition.Builder enumer = EnumDefinition.newBuilder(enumElem.getName(), allowAlias);
-        for (EnumConstantElement constant : enumElem.getConstants()) {
-            enumer.addValue(constant.getName(), constant.getTag());
-        }
-        for (ReservedElement reserved : enumElem.getReserveds()) {
+    /**
+     * Visits the reserved names and the reserved tags or ranges of a message or an enum. A single tag is
+     * reported as a range of one value, and the end of a range is inclusive.
+     */
+    private static void forEachReserved(List<ReservedElement> reserveds, Consumer<String> nameVisitor,
+            BiConsumer<Integer, Integer> rangeVisitor) {
+        for (ReservedElement reserved : reserveds) {
             for (Object elem : reserved.getValues()) {
                 if (elem instanceof String) {
-                    enumer.addReservedName((String) elem);
+                    nameVisitor.accept((String) elem);
                 }
                 else if (elem instanceof Integer) {
                     int tag = (Integer) elem;
-                    enumer.addReservedRange(tag, tag);
+                    rangeVisitor.accept(tag, tag);
                 }
                 else if (elem instanceof IntRange) {
                     IntRange range = (IntRange) elem;
-                    enumer.addReservedRange(range.getStart(), range.getEndInclusive());
+                    rangeVisitor.accept(range.getStart(), range.getEndInclusive());
                 }
                 else {
                     throw new IllegalStateException(
@@ -1838,6 +1785,16 @@ public class FileDescriptorUtils {
                 }
             }
         }
+    }
+
+    private static EnumDefinition toDynamicEnum(EnumElement enumElem) {
+        Boolean allowAlias = findOption("allow_alias", enumElem.getOptions())
+                .map(o -> Boolean.valueOf(o.getValue().toString())).orElse(null);
+        EnumDefinition.Builder enumer = EnumDefinition.newBuilder(enumElem.getName(), allowAlias);
+        for (EnumConstantElement constant : enumElem.getConstants()) {
+            enumer.addValue(constant.getName(), constant.getTag());
+        }
+        forEachReserved(enumElem.getReserveds(), enumer::addReservedName, enumer::addReservedRange);
         return enumer.build();
     }
 
