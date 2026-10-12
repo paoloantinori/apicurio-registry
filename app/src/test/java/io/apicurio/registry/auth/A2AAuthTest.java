@@ -67,9 +67,7 @@ public class A2AAuthTest extends AbstractResourceTestBase {
 
     @Override
     protected RegistryClient createRestClientV3(Vertx vertx) {
-        return RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        return RegistryClientFactory.create(newV3ClientOptions(vertx)
                 .basicAuth(ADMIN_USERNAME, ADMIN_PASSWORD));
     }
 

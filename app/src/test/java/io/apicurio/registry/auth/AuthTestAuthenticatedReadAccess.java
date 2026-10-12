@@ -31,9 +31,7 @@ public class AuthTestAuthenticatedReadAccess extends AbstractResourceTestBase {
 
     @Override
     protected RegistryClient createRestClientV3(Vertx vertx) {
-        return RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        return RegistryClientFactory.create(newV3ClientOptions(vertx)
                 .oauth2(authServerUrl, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
     }
 

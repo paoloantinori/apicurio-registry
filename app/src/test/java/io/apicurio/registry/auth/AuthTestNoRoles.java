@@ -40,9 +40,7 @@ public class AuthTestNoRoles extends AbstractResourceTestBase {
 
     @Override
     protected RegistryClient createRestClientV3(Vertx vertx) {
-        return RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        return RegistryClientFactory.create(newV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
     }
 
