@@ -771,4 +771,60 @@ public class FileDescriptorUtilsTest {
         assertEquals(12, kind.getReservedRange(1).getEnd());
         assertEquals(List.of("OLD_VALUE"), kind.getReservedNameList());
     }
+
+    /**
+     * A top level enum goes through a different call of the dynamic schema than an enum nested in a
+     * message, and the reservations must reach the descriptor on both.
+     */
+    @Test
+    public void testToDescriptorKeepsReservationsOfATopLevelEnum() throws Exception {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                enum Kind {
+                  reserved 5 to 8;
+                  reserved "OLD_VALUE";
+                  KIND_UNKNOWN = 0;
+                }
+                message Doc {
+                  Kind kind = 1;
+                }
+                """;
+        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
+
+        Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Doc", element,
+                Collections.emptyMap());
+
+        DescriptorProtos.EnumDescriptorProto kind = descriptor.getFile().findEnumTypeByName("Kind").toProto();
+        assertEquals(1, kind.getReservedRangeCount());
+        assertEquals(5, kind.getReservedRange(0).getStart());
+        assertEquals(8, kind.getReservedRange(0).getEnd());
+        assertEquals(List.of("OLD_VALUE"), kind.getReservedNameList());
+    }
+
+    /**
+     * An enum value that uses a reserved number is rejected by the Wire schema check, before and after the
+     * descriptor started to carry the reservations, so the copy of the reservations adds no new failure.
+     */
+    @Test
+    public void testEnumValueInsideItsOwnReservedRangeIsRejected() {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                enum Status {
+                  reserved 5 to 8;
+                  UNKNOWN = 0;
+                  BROKEN = 6;
+                }
+                """;
+
+        Exception e = Assertions.assertThrows(Exception.class, () -> FileDescriptorUtils
+                .protoFileToFileDescriptor(schema, "status.proto", Optional.of("test.reserved")));
+
+        Throwable root = e;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        assertTrue(root.getMessage().contains("tag 6 is reserved"), root.toString());
+    }
 }
