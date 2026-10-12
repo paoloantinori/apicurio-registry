@@ -338,8 +338,8 @@ public class AvroSerdeIT extends ApicurioRegistryBaseIT {
             String avroSchemaString2 = avroSchema2.generateSchema().toString();
             logger.info("Registering Avro Schema 2: {}", avroSchemaString2);
 
-            createArtifactVersion(recordNamespace, artifactId, avroSchemaString2, ContentTypes.APPLICATION_JSON,
-                    null);
+            createArtifactVersion(recordNamespace, artifactId, avroSchemaString2,
+                    ContentTypes.APPLICATION_JSON, null);
 
             // We produce messages for both, the old schema version, and the new one.
             produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
@@ -374,8 +374,8 @@ public class AvroSerdeIT extends ApicurioRegistryBaseIT {
             String avroSchemaString3 = avroSchema3.generateSchema().toString();
             logger.info("Registering Avro Schema 3: {}", avroSchemaString3);
 
-            createArtifactVersion(recordNamespace, artifactId, avroSchemaString3, ContentTypes.APPLICATION_JSON,
-                    null);
+            createArtifactVersion(recordNamespace, artifactId, avroSchemaString3,
+                    ContentTypes.APPLICATION_JSON, null);
 
             produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema3);
             produceForSchema(reuseClients, producer, tester, strategy, topicName, messageCount, avroSchema2);
@@ -386,8 +386,8 @@ public class AvroSerdeIT extends ApicurioRegistryBaseIT {
                         topicName);
             }
 
-            // Consume messages from the topic, we must have the sam number of messages for each separate artifact
-            // version
+            // Consume messages from the topic, we must have the sam number of messages for each separate
+            // artifact version
             {
                 AtomicInteger schema1Counter = new AtomicInteger(0);
                 AtomicInteger schema2Counter = new AtomicInteger(0);
