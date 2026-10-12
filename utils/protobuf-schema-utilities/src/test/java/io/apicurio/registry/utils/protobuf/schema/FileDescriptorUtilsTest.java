@@ -859,4 +859,31 @@ public class FileDescriptorUtilsTest {
             assertEquals(13, message.getReservedRange(1).getEnd());
         }
     }
+
+    /**
+     * `to max` and an end beyond the largest field number both stop at 2^29 in a descriptor, and neither wraps
+     * around to a negative end.
+     */
+    @Test
+    public void testMessageReservedRangeEndIsCappedAtTheLargestFieldNumber() throws Exception {
+        for (String range : List.of("10 to max", "10 to 536870911", "10 to 2147483647")) {
+            String schema = "syntax = \"proto3\";\npackage test.reserved;\nmessage Doc {\n  reserved " + range
+                    + ";\n  string a = 1;\n}\n";
+            ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION,
+                    schema);
+
+            DescriptorProtos.DescriptorProto viaToDescriptor = FileDescriptorUtils
+                    .toDescriptor("Doc", element, Collections.emptyMap()).toProto();
+            DescriptorProtos.DescriptorProto viaFileDescriptor = FileDescriptorUtils
+                    .protoFileToFileDescriptor(schema, "test/reserved/doc.proto",
+                            Optional.of("test.reserved"))
+                    .toProto().getMessageType(0);
+
+            for (DescriptorProtos.DescriptorProto message : List.of(viaToDescriptor, viaFileDescriptor)) {
+                assertEquals(1, message.getReservedRangeCount(), range);
+                assertEquals(10, message.getReservedRange(0).getStart(), range);
+                assertEquals(536870912, message.getReservedRange(0).getEnd(), range);
+            }
+        }
+    }
 }
