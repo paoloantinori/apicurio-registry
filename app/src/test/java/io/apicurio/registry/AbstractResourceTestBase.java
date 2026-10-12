@@ -132,6 +132,15 @@ public abstract class AbstractResourceTestBase extends AbstractRegistryTestBase 
                 .requestTimeout(CLIENT_CONNECT_TIMEOUT_MS, CLIENT_READ_IDLE_TIMEOUT_MS);
     }
 
+    /**
+     * The options of every v2 test client built through RegistryV2ClientFactory: the registry URL, the shared
+     * Vert.x and the bounded timeouts.
+     */
+    protected RegistryClientOptions createV2ClientOptions(Vertx vertx) {
+        return RegistryClientOptions.create().registryUrl(registryV2ApiUrl).vertx(vertx)
+                .requestTimeout(CLIENT_CONNECT_TIMEOUT_MS, CLIENT_READ_IDLE_TIMEOUT_MS);
+    }
+
     @BeforeEach
     protected void beforeEach() throws Exception {
         setupRestAssured();

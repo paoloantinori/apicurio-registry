@@ -3,7 +3,6 @@ package io.apicurio.registry.tls;
 import com.microsoft.kiota.RequestAdapter;
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.client.RegistryV2ClientFactory;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.SystemInfo;
@@ -76,7 +75,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(truststoreUrl, "Truststore file not found");
 
         io.apicurio.registry.rest.client.v2.RegistryClient client = RegistryV2ClientFactory.create(
-                RegistryClientOptions.create(registryV2ApiUrl, vertx)
+                createV2ClientOptions(vertx)
                         .trustStoreJks(truststoreUrl.getPath(), "registrytest"));
 
         io.apicurio.registry.rest.client.v2.models.SystemInfo systemInfo = client.system().info().get();
@@ -115,7 +114,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(certUrl, "PEM certificate file not found");
 
         io.apicurio.registry.rest.client.v2.RegistryClient client = RegistryV2ClientFactory.create(
-                RegistryClientOptions.create(registryV2ApiUrl, vertx)
+                createV2ClientOptions(vertx)
                         .trustStorePem(certUrl.getPath()));
 
         io.apicurio.registry.rest.client.v2.models.SystemInfo systemInfo = client.system().info().get();
@@ -160,7 +159,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
                 java.nio.file.Paths.get(certUrl.toURI())));
 
         io.apicurio.registry.rest.client.v2.RegistryClient client = RegistryV2ClientFactory.create(
-                RegistryClientOptions.create(registryV2ApiUrl, vertx)
+                createV2ClientOptions(vertx)
                         .trustStorePemContent(pemContent));
 
         io.apicurio.registry.rest.client.v2.models.SystemInfo systemInfo = client.system().info().get();
@@ -217,7 +216,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
     @SuppressWarnings("removal")
     public void testV2ClientWithTrustAll() throws Exception {
         io.apicurio.registry.rest.client.v2.RegistryClient client = RegistryV2ClientFactory.create(
-                RegistryClientOptions.create(registryV2ApiUrl, vertx)
+                createV2ClientOptions(vertx)
                         .trustAll(true));
 
         io.apicurio.registry.rest.client.v2.models.SystemInfo systemInfo = client.system().info().get();

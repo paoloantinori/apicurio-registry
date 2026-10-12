@@ -3,7 +3,6 @@ package io.apicurio.registry.auth;
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryV2ClientFactory;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.ArtifactMetaData;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
@@ -163,7 +162,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
     @SuppressWarnings("removal")
     public void testInvalidCredentialsReturnsAuthErrorV2() throws Exception {
         // Create V2 client with invalid credentials
-        var clientV2 = RegistryV2ClientFactory.create(RegistryClientOptions.create(registryV2ApiUrl, vertx)
+        var clientV2 = RegistryV2ClientFactory.create(createV2ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.WRONG_CREDS_CLIENT_ID, UUID.randomUUID().toString()));
 
         // Attempt to list artifacts (requires authentication)
