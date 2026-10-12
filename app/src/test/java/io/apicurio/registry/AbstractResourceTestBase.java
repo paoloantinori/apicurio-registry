@@ -121,13 +121,14 @@ public abstract class AbstractResourceTestBase extends AbstractRegistryTestBase 
     }
 
     /**
-     * The options of every test client: the registry URL, the shared Vert.x and the bounded timeouts.
-     * Subclasses that need authentication add it to these options.
+     * The options of the v3 clients that tests build through this base: the registry URL, the shared Vert.x
+     * and the bounded timeouts. Subclasses that need authentication or TLS add it to these options.
      */
     protected RegistryClientOptions createV3ClientOptions(Vertx vertx) {
         return boundedClientOptions(vertx, registryV3ApiUrl);
     }
 
+    /** The same options for a v2 client. */
     protected RegistryClientOptions createV2ClientOptions(Vertx vertx) {
         return boundedClientOptions(vertx, registryV2ApiUrl);
     }
