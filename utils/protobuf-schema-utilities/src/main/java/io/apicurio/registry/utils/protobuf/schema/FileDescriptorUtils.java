@@ -1747,7 +1747,10 @@ public class FileDescriptorUtils {
             message.addField(label, fieldType, field.getName(), field.getTag(), defaultVal, jsonName,
                     isPacked);
         }
-        forEachReserved(messageElem.getReserveds(), message::addReservedName, message::addReservedRange);
+        // MessageDefinition.Builder.addReservedRange takes the exclusive end that a message range has in a
+        // descriptor.
+        forEachReserved(messageElem.getReserveds(), message::addReservedName,
+                (start, endInclusive) -> message.addReservedRange(start, endInclusive + 1));
         Boolean isMapEntry = findOption("map_entry", messageElem.getOptions())
                 .map(o -> Boolean.valueOf(o.getValue().toString())).orElse(null);
         if (isMapEntry != null) {

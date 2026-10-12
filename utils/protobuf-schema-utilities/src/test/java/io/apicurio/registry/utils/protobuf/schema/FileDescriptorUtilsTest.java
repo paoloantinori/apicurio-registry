@@ -827,4 +827,36 @@ public class FileDescriptorUtilsTest {
         }
         assertTrue(root.getMessage().contains("tag 6 is reserved"), root.toString());
     }
+
+    /**
+     * The end of a message reserved range is exclusive in a descriptor. toDescriptor and
+     * protoFileToFileDescriptor must give the same ranges for the same message.
+     */
+    @Test
+    public void testMessageReservedRangesHaveAnExclusiveEndThroughBothPaths() throws Exception {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                message Doc {
+                  reserved 5;
+                  reserved 10 to 12;
+                  string a = 1;
+                }
+                """;
+        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
+
+        DescriptorProtos.DescriptorProto viaToDescriptor = FileDescriptorUtils
+                .toDescriptor("Doc", element, Collections.emptyMap()).toProto();
+        DescriptorProtos.DescriptorProto viaFileDescriptor = FileDescriptorUtils
+                .protoFileToFileDescriptor(schema, "test/reserved/doc.proto", Optional.of("test.reserved"))
+                .toProto().getMessageType(0);
+
+        for (DescriptorProtos.DescriptorProto message : List.of(viaToDescriptor, viaFileDescriptor)) {
+            assertEquals(2, message.getReservedRangeCount());
+            assertEquals(5, message.getReservedRange(0).getStart());
+            assertEquals(6, message.getReservedRange(0).getEnd());
+            assertEquals(10, message.getReservedRange(1).getStart());
+            assertEquals(13, message.getReservedRange(1).getEnd());
+        }
+    }
 }
