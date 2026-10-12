@@ -316,13 +316,16 @@ public class AvroSerdeIT extends ApicurioRegistryBaseIT {
             tester.setAutoClose(false);
         }
 
-        // Create the initial producer and consumer.
-        Producer<String, GenericRecord> producer = tester.createProducer(StringSerializer.class,
-                AvroKafkaSerializer.class, topicName, strategy);
-        Consumer<String, GenericRecord> consumer = tester.createConsumer(StringDeserializer.class,
-                AvroKafkaDeserializer.class, topicName);
-
+        // With reuseClients the tester does not close the clients, so the finally block below does.
+        Producer<String, GenericRecord> producer = null;
+        Consumer<String, GenericRecord> consumer = null;
         try {
+            // Create the initial producer and consumer.
+            producer = tester.createProducer(StringSerializer.class, AvroKafkaSerializer.class, topicName,
+                    strategy);
+            consumer = tester.createConsumer(StringDeserializer.class, AvroKafkaDeserializer.class,
+                    topicName);
+
             // Produce and consume messages for the first version of the schema.
             tester.produceMessages(producer, topicName, avroSchema::generateRecord, messageCount, true);
             tester.consumeMessages(consumer, topicName, messageCount, avroSchema::validateRecord);
