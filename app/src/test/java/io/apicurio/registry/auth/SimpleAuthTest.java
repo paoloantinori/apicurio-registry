@@ -81,7 +81,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testWrongCreds() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.WRONG_CREDS_CLIENT_ID, "test55"));
         var exception = Assertions.assertThrows(Exception.class, () -> {
             client.groups().byGroupId(groupId).artifacts().get();
@@ -98,7 +98,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
     @Test
     public void testInvalidCredentialsReturnsProblemDetails() throws Exception {
         // Create client with invalid credentials
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.WRONG_CREDS_CLIENT_ID, UUID.randomUUID().toString()));
 
         // Attempt to list artifacts (requires authentication)
@@ -222,7 +222,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testNoCreds() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx));
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx));
         Assertions.assertThrows(Exception.class, () -> {
             client.groups().byGroupId(groupId).artifacts().get();
         });
@@ -230,7 +230,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testReadOnly() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.READONLY_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         client.groups().byGroupId(groupId).artifacts().get();
@@ -252,7 +252,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
             config.queryParameters.dryRun = true;
         });
 
-        var devClient = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var devClient = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
 
         createArtifact.setArtifactId(artifactId);
@@ -274,7 +274,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testDevRole() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         try {
@@ -311,7 +311,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testAdminRole() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         try {
@@ -343,7 +343,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testAdminRoleBasicAuth() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         try {
@@ -370,7 +370,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testAdminRoleBasicAuthWrongCreds() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.WRONG_CREDS_CLIENT_ID, UUID.randomUUID().toString()));
         String artifactId = TestUtils.generateArtifactId();
 
@@ -388,10 +388,10 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
     @Test
     public void testGetGroupByIdGroupReadSufficientWithoutArtifactPermissions() throws Exception {
         var clientAdmin = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
         var clientReadonly = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.READONLY_CLIENT_ID, "test1"));
 
         final String testGroupId = "testGetGroupByIdAuth";
@@ -419,10 +419,10 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testOwnerOnlyAuthorization() throws Exception {
-        var clientDev = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var clientDev = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
         var clientAdmin = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
 
         // Admin user will create an artifact
@@ -468,9 +468,9 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testOwnerOnlyAuthorizationIfExistsDoesNotRunWriteHooksForNonOwner() throws Exception {
-        var clientDev = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var clientDev = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
-        var clientAdmin = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var clientAdmin = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         String schemaArtifactId = artifactId + "-output-schema";
@@ -511,7 +511,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testGetArtifactOwner() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
 
         // Preparation
@@ -538,7 +538,7 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
 
     @Test
     public void testUpdateArtifactOwner() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create(registryV3ApiUrl, vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
 
         // Preparation
@@ -581,10 +581,10 @@ public class SimpleAuthTest extends AbstractResourceTestBase {
     @Test
     public void testUpdateArtifactOwnerOnlyByOwner() throws Exception {
         var client_dev1 = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_CLIENT_ID, "test1"));
         var client_dev2 = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                 .oauth2(authServerUrlConfigured, KeycloakTestContainerManager.DEVELOPER_2_CLIENT_ID, "test2"));
 
         // Preparation

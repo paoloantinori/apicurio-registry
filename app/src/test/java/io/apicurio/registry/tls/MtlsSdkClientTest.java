@@ -59,7 +59,7 @@ public class MtlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(keystoreUrl, "Client keystore file not found");
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStoreJks(truststoreUrl.getPath(), "registrytest")
                         .keystoreJks(keystoreUrl.getPath(), "registrytest"));
 
@@ -106,7 +106,7 @@ public class MtlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(keystoreUrl, "Client keystore file not found");
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePkcs12(truststoreUrl.getPath(), "registrytest")
                         .keystorePkcs12(keystoreUrl.getPath(), "registrytest"));
 
@@ -155,7 +155,7 @@ public class MtlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(clientKeyUrl, "Client key PEM file not found");
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePem(truststoreUrl.getPath())
                         .keystorePem(clientCertUrl.getPath(), clientKeyUrl.getPath()));
 
@@ -209,7 +209,7 @@ public class MtlsSdkClientTest extends AbstractResourceTestBase {
                 java.nio.file.Paths.get(clientKeyUrl.toURI())));
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePemContent(pemTrustContent)
                         .keystorePemContent(pemCertContent, pemKeyContent));
 
@@ -265,7 +265,7 @@ public class MtlsSdkClientTest extends AbstractResourceTestBase {
 
         // Create client with only truststore (no client certificate)
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStoreJks(truststoreUrl.getPath(), "registrytest"));
 
         // Should fail because server requires client certificate

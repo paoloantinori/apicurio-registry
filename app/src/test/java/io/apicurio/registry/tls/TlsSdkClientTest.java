@@ -55,7 +55,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(truststoreUrl, "Truststore file not found");
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStoreJks(truststoreUrl.getPath(), "registrytest"));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -96,7 +96,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
         Assertions.assertNotNull(certUrl, "PEM certificate file not found");
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePem(certUrl.getPath()));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -137,7 +137,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
                 java.nio.file.Paths.get(certUrl.toURI())));
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePemContent(pemContent));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -186,7 +186,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
         String multipleCerts = singleCert + "\n" + singleCert;
 
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustStorePemContent(multipleCerts));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -201,7 +201,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
     @Test
     public void testV3ClientWithTrustAll() throws Exception {
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustAll(true));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -287,7 +287,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
     @Test
     public void testV3ClientWithVerifyHostDisabled() throws Exception {
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl, vertx)
+                createV3ClientOptions(vertx)
                         .trustAll(true)
                         .verifyHost(false));
 
