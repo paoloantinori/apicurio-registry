@@ -39,7 +39,7 @@ public class AuthTestProfileBasicClientCredentials extends AbstractResourceTestB
 
     @Override
     protected RegistryClient createRestClientV3(Vertx vertx) {
-        return RegistryClientFactory.create(newV3ClientOptions(vertx)
+        return RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrl, KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
     }
 

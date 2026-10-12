@@ -120,14 +120,14 @@ public abstract class AbstractResourceTestBase extends AbstractRegistryTestBase 
     }
 
     protected RegistryClient createRestClientV3(Vertx vertx) {
-        return RegistryClientFactory.create(newV3ClientOptions(vertx));
+        return RegistryClientFactory.create(createV3ClientOptions(vertx));
     }
 
     /**
      * The options of every v3 test client: the registry URL, the shared Vert.x and the bounded timeouts.
      * Subclasses that need authentication add it to these options.
      */
-    protected RegistryClientOptions newV3ClientOptions(Vertx vertx) {
+    protected RegistryClientOptions createV3ClientOptions(Vertx vertx) {
         return RegistryClientOptions.create().registryUrl(registryV3ApiUrl).vertx(vertx)
                 .requestTimeout(CLIENT_CONNECT_TIMEOUT_MS, CLIENT_READ_IDLE_TIMEOUT_MS);
     }
