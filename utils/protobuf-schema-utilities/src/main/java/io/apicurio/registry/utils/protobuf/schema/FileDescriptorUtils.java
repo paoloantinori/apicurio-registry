@@ -1819,6 +1819,25 @@ public class FileDescriptorUtils {
         for (EnumConstantElement constant : enumElem.getConstants()) {
             enumer.addValue(constant.getName(), constant.getTag());
         }
+        for (ReservedElement reserved : enumElem.getReserveds()) {
+            for (Object elem : reserved.getValues()) {
+                if (elem instanceof String) {
+                    enumer.addReservedName((String) elem);
+                }
+                else if (elem instanceof Integer) {
+                    int tag = (Integer) elem;
+                    enumer.addReservedRange(tag, tag);
+                }
+                else if (elem instanceof IntRange) {
+                    IntRange range = (IntRange) elem;
+                    enumer.addReservedRange(range.getStart(), range.getEndInclusive());
+                }
+                else {
+                    throw new IllegalStateException(
+                            "Unsupported reserved type: " + elem.getClass().getName());
+                }
+            }
+        }
         return enumer.build();
     }
 

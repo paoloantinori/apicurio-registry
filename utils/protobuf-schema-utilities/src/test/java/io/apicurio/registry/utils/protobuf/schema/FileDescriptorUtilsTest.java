@@ -738,4 +738,37 @@ public class FileDescriptorUtilsTest {
         assertTrue(text.contains("reserved -5 to -1;"), text);
         assertTrue(text.contains("reserved \"OLD_VALUE\";"), text);
     }
+
+    /**
+     * toDescriptor builds the descriptor through a second path, the dynamic schema, which the serde and
+     * schema validation parsers use. It must keep the enum reservations of an enum nested in the message.
+     */
+    @Test
+    public void testToDescriptorKeepsEnumReservations() throws Exception {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                message Doc {
+                  enum Kind {
+                    reserved 5 to 8;
+                    reserved 12;
+                    reserved "OLD_VALUE";
+                    KIND_UNKNOWN = 0;
+                  }
+                  Kind kind = 1;
+                }
+                """;
+        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
+
+        Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Doc", element,
+                Collections.emptyMap());
+
+        DescriptorProtos.EnumDescriptorProto kind = descriptor.findEnumTypeByName("Kind").toProto();
+        assertEquals(2, kind.getReservedRangeCount());
+        assertEquals(5, kind.getReservedRange(0).getStart());
+        assertEquals(8, kind.getReservedRange(0).getEnd());
+        assertEquals(12, kind.getReservedRange(1).getStart());
+        assertEquals(12, kind.getReservedRange(1).getEnd());
+        assertEquals(List.of("OLD_VALUE"), kind.getReservedNameList());
+    }
 }

@@ -47,6 +47,21 @@ public class EnumDefinition {
             return this;
         }
 
+        public Builder addReservedName(String reservedName) {
+            mEnumTypeBuilder.addReservedName(reservedName);
+            return this;
+        }
+
+        /**
+         * Reserves a range of values. Unlike a message reserved range, the end of an enum reserved range is
+         * inclusive.
+         */
+        public Builder addReservedRange(int start, int end) {
+            mEnumTypeBuilder.addReservedRange(
+                    DescriptorProtos.EnumDescriptorProto.EnumReservedRange.newBuilder().setStart(start).setEnd(end));
+            return this;
+        }
+
         public EnumDefinition build() {
             return new EnumDefinition(mEnumTypeBuilder.build());
         }

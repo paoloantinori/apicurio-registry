@@ -387,8 +387,9 @@ public class ProtobufFile {
 
     private void processEnumElement(String scope, EnumElement enumElement) {
 
-        // TODO reservedEnumFields - wire doesn't preserve these
-        // https://github.com/square/wire/issues/797 RFE: capture EnumElement reserved info
+        // TODO reservedEnumFields - EnumElement.getReserveds() carries the reservations (the descriptor
+        // builders in FileDescriptorUtils read it), but this class does not collect them for the
+        // compatibility checks yet.
 
         // enumFieldMap, enumFieldsIDName, nonReservedEnumFields
         Map<String, EnumConstantElement> map = new HashMap<>();
