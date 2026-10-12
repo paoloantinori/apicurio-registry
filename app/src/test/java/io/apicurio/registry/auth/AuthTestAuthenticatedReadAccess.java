@@ -2,7 +2,6 @@ package io.apicurio.registry.auth;
 
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
 import io.apicurio.registry.types.ArtifactType;
@@ -38,9 +37,7 @@ public class AuthTestAuthenticatedReadAccess extends AbstractResourceTestBase {
     @Test
     public void testReadOperationWithNoRole() throws Exception {
         // Read-only operation should work with credentials but no role.
-        RegistryClient client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .oauth2(authServerUrl, KeycloakTestContainerManager.NO_ROLE_CLIENT_ID, "test1"));
         var results = client.search().artifacts().get(config -> config.queryParameters.groupId = groupId);
         Assertions.assertTrue(results.getCount() >= 0);

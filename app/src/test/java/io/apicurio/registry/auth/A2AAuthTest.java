@@ -2,7 +2,6 @@ package io.apicurio.registry.auth;
 
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
 import io.apicurio.registry.rest.client.models.CreateVersion;
@@ -94,14 +93,12 @@ public class A2AAuthTest extends AbstractResourceTestBase {
     }
 
     private RegistryClient adminClient() {
-        return RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl).vertx(vertx)
+        return RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(ADMIN_USERNAME, ADMIN_PASSWORD));
     }
 
     private RegistryClient developerClient() {
-        return RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl).vertx(vertx)
+        return RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(DEVELOPER_USERNAME, DEVELOPER_PASSWORD));
     }
 

@@ -2,7 +2,6 @@ package io.apicurio.registry.auth;
 
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.model.GroupId;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
@@ -45,9 +44,7 @@ public class AuthTestProfileBasicClientCredentials extends AbstractResourceTestB
 
     @Test
     public void testWrongCreds() throws Exception {
-        RegistryClient client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.WRONG_CREDS_CLIENT_ID, "test55"));
         var exception = Assertions.assertThrows(Exception.class, () -> {
             client.groups().byGroupId(groupId).artifacts().get();
@@ -57,9 +54,7 @@ public class AuthTestProfileBasicClientCredentials extends AbstractResourceTestB
 
     @Test
     public void testBasicAuthClientCredentials() throws Exception {
-        RegistryClient client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(KeycloakTestContainerManager.ADMIN_CLIENT_ID, "test1"));
         String artifactId = TestUtils.generateArtifactId();
         try {
@@ -94,9 +89,7 @@ public class AuthTestProfileBasicClientCredentials extends AbstractResourceTestB
 
     @Test
     public void testNoCredentials() throws Exception {
-        RegistryClient client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx));
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx));
         var exception = Assertions.assertThrows(Exception.class, () -> {
             client.groups().byGroupId(groupId).artifacts().get();
         });

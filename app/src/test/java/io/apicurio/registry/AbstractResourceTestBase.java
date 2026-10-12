@@ -1,8 +1,8 @@
 package io.apicurio.registry;
 
 import com.microsoft.kiota.ApiException;
-import com.microsoft.kiota.RequestAdapter;
 import io.apicurio.registry.client.RegistryClientFactory;
+import io.apicurio.registry.client.RegistryV2ClientFactory;
 import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.model.GroupId;
 import io.apicurio.registry.rest.client.RegistryClient;
@@ -25,7 +25,6 @@ import io.apicurio.registry.utils.tests.ProblemDetailsWatcher;
 import io.apicurio.registry.utils.tests.TestUtils;
 import io.confluent.kafka.schemaregistry.client.rest.RestService;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.kiota.http.vertx.VertXRequestAdapter;
 import io.restassured.RestAssured;
 import io.restassured.parsing.Parser;
 import io.restassured.response.ValidatableResponse;
@@ -112,11 +111,9 @@ public abstract class AbstractResourceTestBase extends AbstractRegistryTestBase 
         return new RestService("http://localhost:" + testPort + "/apis/ccompat/v7");
     }
 
+    @SuppressWarnings("removal")
     protected io.apicurio.registry.rest.client.v2.RegistryClient createRestClientV2(Vertx vertx) {
-        RequestAdapter anonymousAdapter = new VertXRequestAdapter(vertx);
-        anonymousAdapter.setBaseUrl(registryV2ApiUrl);
-        var client = new io.apicurio.registry.rest.client.v2.RegistryClient(anonymousAdapter);
-        return client;
+        return RegistryV2ClientFactory.create(createV2ClientOptions(vertx));
     }
 
     protected RegistryClient createRestClientV3(Vertx vertx) {
@@ -124,20 +121,19 @@ public abstract class AbstractResourceTestBase extends AbstractRegistryTestBase 
     }
 
     /**
-     * The options of every v3 test client: the registry URL, the shared Vert.x and the bounded timeouts.
+     * The options of every test client: the registry URL, the shared Vert.x and the bounded timeouts.
      * Subclasses that need authentication add it to these options.
      */
     protected RegistryClientOptions createV3ClientOptions(Vertx vertx) {
-        return RegistryClientOptions.create().registryUrl(registryV3ApiUrl).vertx(vertx)
-                .requestTimeout(CLIENT_CONNECT_TIMEOUT_MS, CLIENT_READ_IDLE_TIMEOUT_MS);
+        return boundedClientOptions(vertx, registryV3ApiUrl);
     }
 
-    /**
-     * The options of every v2 test client built through RegistryV2ClientFactory: the registry URL, the shared
-     * Vert.x and the bounded timeouts.
-     */
     protected RegistryClientOptions createV2ClientOptions(Vertx vertx) {
-        return RegistryClientOptions.create().registryUrl(registryV2ApiUrl).vertx(vertx)
+        return boundedClientOptions(vertx, registryV2ApiUrl);
+    }
+
+    private static RegistryClientOptions boundedClientOptions(Vertx vertx, String registryUrl) {
+        return RegistryClientOptions.create().registryUrl(registryUrl).vertx(vertx)
                 .requestTimeout(CLIENT_CONNECT_TIMEOUT_MS, CLIENT_READ_IDLE_TIMEOUT_MS);
     }
 

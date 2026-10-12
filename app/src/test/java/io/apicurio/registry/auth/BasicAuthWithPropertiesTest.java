@@ -3,7 +3,6 @@ package io.apicurio.registry.auth;
 import com.microsoft.kiota.ApiException;
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
-import io.apicurio.registry.client.common.RegistryClientOptions;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.ArtifactMetaData;
 import io.apicurio.registry.rest.client.models.CreateArtifact;
@@ -76,9 +75,7 @@ public class BasicAuthWithPropertiesTest extends AbstractResourceTestBase {
 
     @Test
     public void testWrongCreds() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         var exception = Assertions.assertThrows(ApiException.class, () -> {
             client.groups().byGroupId(groupId).artifacts().get();
@@ -88,9 +85,7 @@ public class BasicAuthWithPropertiesTest extends AbstractResourceTestBase {
 
     @Test
     public void testReadOnly() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(READONLY_USERNAME, READONLY_PASSWORD));
         String artifactId = TestUtils.generateArtifactId();
         client.groups().byGroupId(groupId).artifacts().get();
@@ -110,9 +105,7 @@ public class BasicAuthWithPropertiesTest extends AbstractResourceTestBase {
         });
         assertForbidden(exception3);
 
-        var devClient = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        var devClient = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(DEVELOPER_USERNAME, DEVELOPER_PASSWORD));
 
         VersionMetaData meta = devClient.groups().byGroupId(groupId).artifacts().post(createArtifact)
@@ -133,9 +126,7 @@ public class BasicAuthWithPropertiesTest extends AbstractResourceTestBase {
 
     @Test
     public void testDevRole() throws Exception {
-        var client = RegistryClientFactory.create(RegistryClientOptions.create()
-                .registryUrl(registryV3ApiUrl)
-                .vertx(vertx)
+        var client = RegistryClientFactory.create(createV3ClientOptions(vertx)
                 .basicAuth(DEVELOPER_USERNAME, DEVELOPER_PASSWORD));
         String artifactId = TestUtils.generateArtifactId();
         try {
