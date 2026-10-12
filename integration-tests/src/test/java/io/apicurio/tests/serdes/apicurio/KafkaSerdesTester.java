@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
@@ -129,7 +128,7 @@ public class KafkaSerdesTester<K, P, C> {
 
     private void produceMessages(Producer<K, P> producer, String topicName, DataGenerator<P> dataGenerator,
             int messageCount) throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<Integer> resultPromise = CompletableFuture.supplyAsync(() -> {
+        FutureTask<Integer> resultPromise = new FutureTask<>(() -> {
 
             int producedMessages = 0;
 
@@ -158,12 +157,19 @@ public class KafkaSerdesTester<K, P, C> {
 
             return producedMessages;
         });
+        // A named thread of its own, so a timeout can dump this producer's stack.
+        Thread producerThread = new Thread(resultPromise, "kafka-serdes-producer-" + topicName);
+        producerThread.setDaemon(true);
+        producerThread.start();
 
         try {
             Integer messagesSent = resultPromise.get((MILLIS_PER_MESSAGE * messageCount) + 2000,
                     TimeUnit.MILLISECONDS);
             assertEquals(messageCount, messagesSent.intValue());
-        } catch (Exception e) {
+        } catch (TimeoutException e) {
+            LOGGER.error("Producer for topic {} did not finish in time. Stack of {} ({}):\n{}", topicName,
+                    producerThread.getName(), producerThread.getState(),
+                    formatStack(producerThread.getStackTrace()));
             throw e;
         }
     }

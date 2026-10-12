@@ -3,6 +3,9 @@ package io.apicurio.tests.serdes.apicurio;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.WakeupException;
 import org.junit.jupiter.api.Tag;
@@ -13,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -255,6 +259,34 @@ class KafkaSerdesTesterIT {
         assertTrue(message.startsWith("Consumed record validation failed"), () -> "actual: " + message);
         // close() runs in the helper's finally block before the failure reaches the caller.
         verify(consumer).close();
+    }
+
+    @Test
+    void produceRunsOnANamedThreadAndTimesOutWhenSendBlocks() {
+        CountDownLatch release = new CountDownLatch(1);
+        AtomicReference<String> sendThread = new AtomicReference<>();
+        Producer<String, String> producer = mockProducer();
+        // send() blocks the way it does while the producer waits for metadata.
+        when(producer.send(any(ProducerRecord.class))).thenAnswer(invocation -> {
+            sendThread.set(Thread.currentThread().getName());
+            release.await(30, TimeUnit.SECONDS);
+            return CompletableFuture.completedFuture(new RecordMetadata(null, 0, 0, 0, 0, 0));
+        });
+
+        try {
+            // One message gives a 2.7 s wait.
+            assertThrows(TimeoutException.class,
+                    () -> tester.produceMessages(producer, TOPIC, count -> "value", 1, false));
+        } finally {
+            release.countDown();
+        }
+
+        assertEquals("kafka-serdes-producer-" + TOPIC, sendThread.get());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Producer<String, String> mockProducer() {
+        return mock(Producer.class);
     }
 
     @SuppressWarnings("unchecked")
