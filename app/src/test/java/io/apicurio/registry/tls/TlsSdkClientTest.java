@@ -1,12 +1,10 @@
 package io.apicurio.registry.tls;
 
-import com.microsoft.kiota.RequestAdapter;
 import io.apicurio.registry.AbstractResourceTestBase;
 import io.apicurio.registry.client.RegistryClientFactory;
 import io.apicurio.registry.client.RegistryV2ClientFactory;
 import io.apicurio.registry.rest.client.RegistryClient;
 import io.apicurio.registry.rest.client.models.SystemInfo;
-import io.kiota.http.vertx.VertXRequestAdapter;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
@@ -231,9 +229,7 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
     @Test
     public void testV3ClientWithoutSslConfig() {
         // Create a client with no SSL configuration - should fail
-        RequestAdapter adapter = new VertXRequestAdapter(vertx);
-        adapter.setBaseUrl(registryV3ApiUrl);
-        RegistryClient client = new RegistryClient(adapter);
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx));
 
         Exception exception = Assertions.assertThrows(Exception.class, () -> {
             client.system().info().get();
@@ -256,12 +252,11 @@ public class TlsSdkClientTest extends AbstractResourceTestBase {
      * Test v2 SDK client without SSL configuration - should fail with SSL error
      */
     @Test
+    @SuppressWarnings("removal")
     public void testV2ClientWithoutSslConfig() {
         // Create a client with no SSL configuration - should fail
-        RequestAdapter adapter = new VertXRequestAdapter(vertx);
-        adapter.setBaseUrl(registryV2ApiUrl);
         io.apicurio.registry.rest.client.v2.RegistryClient client =
-                new io.apicurio.registry.rest.client.v2.RegistryClient(adapter);
+                RegistryV2ClientFactory.create(createV2ClientOptions(vertx));
 
         Exception exception = Assertions.assertThrows(Exception.class, () -> {
             client.system().info().get();

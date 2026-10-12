@@ -66,7 +66,7 @@ public class ProxySdkClientTest extends AbstractResourceTestBase {
     @Test
     public void testV3ClientWithProxy() throws Exception {
         RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl)
+                createV3ClientOptions(vertx)
                         .proxy("localhost", proxy.getPort()));
 
         SystemInfo systemInfo = client.system().info().get();
@@ -77,8 +77,7 @@ public class ProxySdkClientTest extends AbstractResourceTestBase {
 
     @Test
     public void testV3ClientWithoutProxy() throws Exception {
-        RegistryClient client = RegistryClientFactory.create(
-                RegistryClientOptions.create(registryV3ApiUrl));
+        RegistryClient client = RegistryClientFactory.create(createV3ClientOptions(vertx));
 
         SystemInfo systemInfo = client.system().info().get();
         Assertions.assertNotNull(systemInfo);
