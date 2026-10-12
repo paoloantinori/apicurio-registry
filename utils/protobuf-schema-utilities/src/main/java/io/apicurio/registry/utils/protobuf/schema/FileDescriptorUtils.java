@@ -1035,6 +1035,28 @@ public class FileDescriptorUtils {
             builder.addValue(EnumValueDescriptorProto.newBuilder().setName(constant.getName())
                     .setNumber(constant.getTag()).build());
         }
+        for (ReservedElement reserved : enumElem.toElement().getReserveds()) {
+            for (Object elem : reserved.getValues()) {
+                if (elem instanceof String) {
+                    builder.addReservedName((String) elem);
+                }
+                else if (elem instanceof Integer) {
+                    int tag = (Integer) elem;
+                    builder.addReservedRange(
+                            EnumDescriptorProto.EnumReservedRange.newBuilder().setStart(tag).setEnd(tag));
+                }
+                else if (elem instanceof IntRange) {
+                    IntRange range = (IntRange) elem;
+                    // The end of an enum reserved range is inclusive, unlike a message reserved range.
+                    builder.addReservedRange(EnumDescriptorProto.EnumReservedRange.newBuilder()
+                            .setStart(range.getStart()).setEnd(range.getEndInclusive()));
+                }
+                else {
+                    throw new IllegalStateException(
+                            "Unsupported reserved type: " + elem.getClass().getName());
+                }
+            }
+        }
         return builder.build();
     }
 

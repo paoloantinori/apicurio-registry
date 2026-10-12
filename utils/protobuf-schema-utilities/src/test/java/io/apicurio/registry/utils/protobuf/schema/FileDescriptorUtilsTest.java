@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -697,5 +698,40 @@ public class FileDescriptorUtilsTest {
         String text = element.toSchema();
         assertTrue(text.contains("reserved 5 to 8;"), text);
         assertTrue(text.contains("reserved 12;"), text);
+    }
+
+    /**
+     * The enum reservations written in a .proto text must survive the trip to a descriptor and back to
+     * text: a range with its inclusive end, a single tag and a name.
+     */
+    @Test
+    public void testEnumReservationsSurviveTextToDescriptorAndBack() throws Exception {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                enum Status {
+                  reserved 5 to 8;
+                  reserved 12;
+                  reserved "OLD_VALUE";
+                  UNKNOWN = 0;
+                  ACTIVE = 1;
+                }
+                """;
+
+        Descriptors.FileDescriptor fd = FileDescriptorUtils.protoFileToFileDescriptor(schema, "status.proto",
+                Optional.of("test.reserved"));
+        DescriptorProtos.EnumDescriptorProto enumProto = fd.toProto().getEnumType(0);
+
+        assertEquals(2, enumProto.getReservedRangeCount());
+        assertEquals(5, enumProto.getReservedRange(0).getStart());
+        assertEquals(8, enumProto.getReservedRange(0).getEnd());
+        assertEquals(12, enumProto.getReservedRange(1).getStart());
+        assertEquals(12, enumProto.getReservedRange(1).getEnd());
+        assertEquals(List.of("OLD_VALUE"), enumProto.getReservedNameList());
+
+        String text = FileDescriptorUtils.fileDescriptorToProtoFile(fd.toProto()).toSchema();
+        assertTrue(text.contains("reserved 5 to 8;"), text);
+        assertTrue(text.contains("reserved 12;"), text);
+        assertTrue(text.contains("reserved \"OLD_VALUE\";"), text);
     }
 }
