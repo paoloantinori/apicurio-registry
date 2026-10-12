@@ -712,6 +712,7 @@ public class FileDescriptorUtilsTest {
                 enum Status {
                   reserved 5 to 8;
                   reserved 12;
+                  reserved -5 to -1;
                   reserved "OLD_VALUE";
                   UNKNOWN = 0;
                   ACTIVE = 1;
@@ -722,16 +723,19 @@ public class FileDescriptorUtilsTest {
                 Optional.of("test.reserved"));
         DescriptorProtos.EnumDescriptorProto enumProto = fd.toProto().getEnumType(0);
 
-        assertEquals(2, enumProto.getReservedRangeCount());
+        assertEquals(3, enumProto.getReservedRangeCount());
         assertEquals(5, enumProto.getReservedRange(0).getStart());
         assertEquals(8, enumProto.getReservedRange(0).getEnd());
         assertEquals(12, enumProto.getReservedRange(1).getStart());
         assertEquals(12, enumProto.getReservedRange(1).getEnd());
+        assertEquals(-5, enumProto.getReservedRange(2).getStart());
+        assertEquals(-1, enumProto.getReservedRange(2).getEnd());
         assertEquals(List.of("OLD_VALUE"), enumProto.getReservedNameList());
 
         String text = FileDescriptorUtils.fileDescriptorToProtoFile(fd.toProto()).toSchema();
         assertTrue(text.contains("reserved 5 to 8;"), text);
         assertTrue(text.contains("reserved 12;"), text);
+        assertTrue(text.contains("reserved -5 to -1;"), text);
         assertTrue(text.contains("reserved \"OLD_VALUE\";"), text);
     }
 }
