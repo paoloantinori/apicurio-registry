@@ -15,8 +15,8 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -262,13 +262,15 @@ class KafkaSerdesTesterIT {
     }
 
     @Test
-    void produceRunsOnANamedThreadAndTimesOutWhenSendBlocks() {
+    void produceRunsOnANamedThreadAndTimesOutWhenSendBlocks() throws Exception {
         CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch sendEntered = new CountDownLatch(1);
         AtomicReference<String> sendThread = new AtomicReference<>();
         Producer<String, String> producer = mockProducer();
         // send() blocks the way it does while the producer waits for metadata.
         when(producer.send(any(ProducerRecord.class))).thenAnswer(invocation -> {
             sendThread.set(Thread.currentThread().getName());
+            sendEntered.countDown();
             release.await(30, TimeUnit.SECONDS);
             return CompletableFuture.completedFuture(new RecordMetadata(null, 0, 0, 0, 0, 0));
         });
@@ -281,6 +283,7 @@ class KafkaSerdesTesterIT {
             release.countDown();
         }
 
+        assertTrue(sendEntered.await(5, TimeUnit.SECONDS), "send() was never called");
         assertEquals("kafka-serdes-producer-" + TOPIC, sendThread.get());
     }
 

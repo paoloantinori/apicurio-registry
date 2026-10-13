@@ -5,6 +5,7 @@ import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Producer;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -61,10 +62,11 @@ class PulsarSerdesTesterIT {
 
         // One expected message gives a 2.7 s wait, after which the thread ends by itself with a count that
         // falls short of the expected one.
-        AssertionError failure = assertThrows(AssertionError.class,
+        AssertionFailedError failure = assertThrows(AssertionFailedError.class,
                 () -> tester.consumeMessages(consumer, TOPIC, 1, null));
 
-        assertTrue(failure.getMessage().contains("expected: <1> but was: <0>"), failure.getMessage());
+        assertEquals(1, failure.getExpected().getValue());
+        assertEquals(0, failure.getActual().getValue());
         assertEquals("pulsar-serdes-consumer-" + TOPIC, receiveThread.get());
         verify(consumer, never()).close();
     }
@@ -86,10 +88,12 @@ class PulsarSerdesTesterIT {
     @Test
     void produceRunsOnANamedThreadAndTimesOutWhenSendBlocks() throws Exception {
         CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch sendEntered = new CountDownLatch(1);
         AtomicReference<String> sendThread = new AtomicReference<>();
         Producer<String> producer = mockProducer();
         when(producer.send(any(String.class))).thenAnswer(invocation -> {
             sendThread.set(Thread.currentThread().getName());
+            sendEntered.countDown();
             release.await(30, TimeUnit.SECONDS);
             return null;
         });
@@ -102,6 +106,7 @@ class PulsarSerdesTesterIT {
             release.countDown();
         }
 
+        assertTrue(sendEntered.await(5, TimeUnit.SECONDS), "send() was never called");
         assertEquals("pulsar-serdes-producer-" + TOPIC, sendThread.get());
     }
 

@@ -23,10 +23,6 @@ public class PulsarSerdesTester<P, C> {
 
     private static final int MILLIS_PER_MESSAGE = 700;
     private static final int RECEIVE_POLL_MILLIS = 1000;
-    private static final String BOOTSTRAP_SERVERS = "localhost:9092";
-    private static final String MAC_OS_BOOTSTRAP_SERVERS = "docker.host.internal:9092";
-
-    private boolean autoClose = true;
 
     public PulsarSerdesTester() {
         // empty
@@ -144,10 +140,4 @@ public class PulsarSerdesTester<P, C> {
 
     }
 
-    @FunctionalInterface
-    public static interface Validator {
-
-        public boolean validate() throws Exception;
-
-    }
 }
