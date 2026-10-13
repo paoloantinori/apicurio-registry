@@ -3,6 +3,7 @@ package io.apicurio.tests.serdes.apicurio.pulsar;
 import org.apache.pulsar.client.api.Consumer;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClientException;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
@@ -16,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static io.apicurio.deployment.Constants.SMOKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,9 +54,11 @@ class PulsarSerdesTesterIT {
     @Test
     void consumeTimeoutEndsTheThreadByItselfAndLeavesTheConsumerOpen() throws Exception {
         Consumer<String> consumer = mockConsumer();
+        CountDownLatch receiveEntered = new CountDownLatch(1);
         AtomicReference<String> receiveThread = new AtomicReference<>();
         when(consumer.receive(anyInt(), any(TimeUnit.class))).thenAnswer(invocation -> {
             receiveThread.set(Thread.currentThread().getName());
+            receiveEntered.countDown();
             // The real receive(timeout) returns null after its timeout.
             Thread.sleep(200);
             return null;
@@ -67,7 +71,40 @@ class PulsarSerdesTesterIT {
 
         assertEquals(1, failure.getExpected().getValue());
         assertEquals(0, failure.getActual().getValue());
+        assertTrue(receiveEntered.await(5, TimeUnit.SECONDS), "receive() was never called");
         assertEquals("pulsar-serdes-consumer-" + TOPIC, receiveThread.get());
+        verify(consumer, never()).close();
+    }
+
+    @Test
+    void consumeKeepsPollingAfterAReceiveThatTimedOut() throws Exception {
+        Consumer<String> consumer = mockConsumer();
+        Message<String> message = mockMessage("value");
+        // A message, a receive that times out, then another message: the loop must go on after the null.
+        when(consumer.receive(anyInt(), any(TimeUnit.class))).thenReturn(message, null, message);
+
+        tester.consumeMessages(consumer, TOPIC, 2, "value"::equals);
+
+        verify(consumer, times(3)).receive(anyInt(), any(TimeUnit.class));
+        verify(consumer, never()).close();
+    }
+
+    @Test
+    void consumeCountsTheMessagesReceivedBeforeTheDeadline() throws Exception {
+        Consumer<String> consumer = mockConsumer();
+        Message<String> message = mockMessage("value");
+        // One message, then nothing until the deadline.
+        when(consumer.receive(anyInt(), any(TimeUnit.class))).thenReturn(message).thenAnswer(invocation -> {
+            Thread.sleep(200);
+            return null;
+        });
+
+        // Two expected messages give a 3.4 s wait.
+        AssertionFailedError failure = assertThrows(AssertionFailedError.class,
+                () -> tester.consumeMessages(consumer, TOPIC, 2, "value"::equals));
+
+        assertEquals(2, failure.getExpected().getValue());
+        assertEquals(1, failure.getActual().getValue());
         verify(consumer, never()).close();
     }
 
@@ -83,6 +120,7 @@ class PulsarSerdesTesterIT {
         assertInstanceOf(AssertionError.class, e.getCause());
         assertTrue(e.getCause().getMessage().startsWith("Consumed record validation failed"),
                 e.getCause().getMessage());
+        verify(consumer, never()).close();
     }
 
     @Test
@@ -108,6 +146,18 @@ class PulsarSerdesTesterIT {
 
         assertTrue(sendEntered.await(5, TimeUnit.SECONDS), "send() was never called");
         assertEquals("pulsar-serdes-producer-" + TOPIC, sendThread.get());
+    }
+
+    @Test
+    void produceFailureSurfacesAsTheCauseOfAnExecutionException() throws Exception {
+        Producer<String> producer = mockProducer();
+        PulsarClientException failure = new PulsarClientException("broker unreachable");
+        when(producer.send(any(String.class))).thenThrow(failure);
+
+        ExecutionException e = assertThrows(ExecutionException.class,
+                () -> tester.produceMessages(producer, TOPIC, count -> "value", 1, false));
+
+        assertSame(failure, e.getCause());
     }
 
     @SuppressWarnings("unchecked")
