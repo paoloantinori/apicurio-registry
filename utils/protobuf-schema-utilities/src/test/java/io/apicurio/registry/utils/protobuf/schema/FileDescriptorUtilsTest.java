@@ -869,4 +869,35 @@ public class FileDescriptorUtilsTest {
             }
         }
     }
+
+    /**
+     * A message range that starts above the largest field number reserves nothing, so it is left out of the
+     * descriptor instead of being written with an end before its start.
+     */
+    @Test
+    public void testMessageReservedRangeAboveTheLargestFieldNumberIsLeftOut() throws Exception {
+        String schema = """
+                syntax = "proto3";
+                package test.reserved;
+                message Doc {
+                  reserved 5;
+                  reserved 2147483647;
+                  reserved 536870913 to 2147483647;
+                  string a = 1;
+                }
+                """;
+        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
+
+        DescriptorProtos.DescriptorProto viaToDescriptor = FileDescriptorUtils
+                .toDescriptor("Doc", element, Collections.emptyMap()).toProto();
+        DescriptorProtos.DescriptorProto viaFileDescriptor = FileDescriptorUtils
+                .protoFileToFileDescriptor(schema, "test/reserved/doc.proto", Optional.of("test.reserved"))
+                .toProto().getMessageType(0);
+
+        for (DescriptorProtos.DescriptorProto message : List.of(viaToDescriptor, viaFileDescriptor)) {
+            assertEquals(1, message.getReservedRangeCount(), message.getReservedRangeList().toString());
+            assertEquals(5, message.getReservedRange(0).getStart());
+            assertEquals(6, message.getReservedRange(0).getEnd());
+        }
+    }
 }

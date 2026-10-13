@@ -943,9 +943,12 @@ public class FileDescriptorUtils {
 
         forEachReserved(messageElem.toElement().getReserveds(),
                 name -> message.protoBuilder().addReservedName(name),
-                (start, endInclusive) -> message.protoBuilder().addReservedRange(
-                        DescriptorProto.ReservedRange.newBuilder().setStart(start)
-                                .setEnd(exclusiveMessageRangeEnd(endInclusive)).build()));
+                (start, endInclusive) -> {
+                    if (start <= MAX_FIELD_NUMBER) {
+                        message.protoBuilder().addReservedRange(DescriptorProto.ReservedRange.newBuilder()
+                                .setStart(start).setEnd(exclusiveMessageRangeEnd(endInclusive)).build());
+                    }
+                });
         for (ExtensionsElement extensions : messageElem.toElement().getExtensions()) {
             for (Object elem : extensions.getValues()) {
                 if (elem instanceof Integer) {
@@ -1751,9 +1754,11 @@ public class FileDescriptorUtils {
         }
         // MessageDefinition.Builder.addReservedRange takes the exclusive end that a message range has in a
         // descriptor.
-        forEachReserved(messageElem.getReserveds(), message::addReservedName,
-                (start, endInclusive) -> message.addReservedRange(start,
-                        exclusiveMessageRangeEnd(endInclusive)));
+        forEachReserved(messageElem.getReserveds(), message::addReservedName, (start, endInclusive) -> {
+            if (start <= MAX_FIELD_NUMBER) {
+                message.addReservedRange(start, exclusiveMessageRangeEnd(endInclusive));
+            }
+        });
         Boolean isMapEntry = findOption("map_entry", messageElem.getOptions())
                 .map(o -> Boolean.valueOf(o.getValue().toString())).orElse(null);
         if (isMapEntry != null) {
@@ -1769,7 +1774,9 @@ public class FileDescriptorUtils {
     /**
      * Converts the inclusive end of a message reserved range to the exclusive end a descriptor stores. Wire
      * does not bound a literal end, so an end above the largest field number is clamped, as that is where
-     * the range stops in practice; adding one to Integer.MAX_VALUE would wrap to a negative end.
+     * the range stops in practice; adding one to Integer.MAX_VALUE would wrap to a negative end. A range that
+     * starts above the largest field number reserves nothing and is not written, so it cannot end before it
+     * starts.
      */
     private static int exclusiveMessageRangeEnd(int endInclusive) {
         return Math.min(endInclusive, MAX_FIELD_NUMBER) + 1;
