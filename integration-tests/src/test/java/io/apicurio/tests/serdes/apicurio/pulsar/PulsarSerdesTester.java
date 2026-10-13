@@ -48,19 +48,14 @@ public class PulsarSerdesTester<P, C> {
 
             int producedMessages = 0;
 
-            try {
-                while (producedMessages < messageCount) {
-                    P data = dataGenerator.generate(producedMessages);
-                    LOGGER.info("Sending message {} to topic {}", data, topicName);
-                    producer.send(data);
-                    producedMessages++;
+            while (producedMessages < messageCount) {
+                P data = dataGenerator.generate(producedMessages);
+                LOGGER.info("Sending message {} to topic {}", data, topicName);
+                producer.send(data);
+                producedMessages++;
 
-                }
-                LOGGER.info("Produced {} messages", producedMessages);
-
-            } catch (PulsarClientException e) {
-                throw new RuntimeException(e);
             }
+            LOGGER.info("Produced {} messages", producedMessages);
 
             return producedMessages;
         });
