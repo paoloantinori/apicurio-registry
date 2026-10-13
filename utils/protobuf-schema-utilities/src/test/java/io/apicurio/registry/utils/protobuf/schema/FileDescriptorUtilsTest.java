@@ -808,6 +808,7 @@ public class FileDescriptorUtilsTest {
         while (root.getCause() != null) {
             root = root.getCause();
         }
+        assertNotNull(root.getMessage(), root.toString());
         assertTrue(root.getMessage().contains("tag 6 is reserved"), root.toString());
     }
 
@@ -823,6 +824,7 @@ public class FileDescriptorUtilsTest {
                 message Doc {
                   reserved 5;
                   reserved 10 to 12;
+                  reserved "old_field";
                   string a = 1;
                 }
                 """;
@@ -835,11 +837,13 @@ public class FileDescriptorUtilsTest {
                 .toProto().getMessageType(0);
 
         for (DescriptorProtos.DescriptorProto message : List.of(viaToDescriptor, viaFileDescriptor)) {
-            assertEquals(2, message.getReservedRangeCount());
-            assertEquals(5, message.getReservedRange(0).getStart());
-            assertEquals(6, message.getReservedRange(0).getEnd());
-            assertEquals(10, message.getReservedRange(1).getStart());
-            assertEquals(13, message.getReservedRange(1).getEnd());
+            String path = message == viaToDescriptor ? "toDescriptor" : "protoFileToFileDescriptor";
+            assertEquals(2, message.getReservedRangeCount(), path);
+            assertEquals(5, message.getReservedRange(0).getStart(), path);
+            assertEquals(6, message.getReservedRange(0).getEnd(), path);
+            assertEquals(10, message.getReservedRange(1).getStart(), path);
+            assertEquals(13, message.getReservedRange(1).getEnd(), path);
+            assertEquals(List.of("old_field"), message.getReservedNameList(), path);
         }
     }
 
@@ -872,7 +876,8 @@ public class FileDescriptorUtilsTest {
 
     /**
      * A message range that starts above the largest field number reserves nothing, so it is left out of the
-     * descriptor instead of being written with an end before its start.
+     * descriptor instead of being written with an end before its start. The largest field number itself is
+     * the boundary and stays reserved.
      */
     @Test
     public void testMessageReservedRangeAboveTheLargestFieldNumberIsLeftOut() throws Exception {
@@ -881,6 +886,8 @@ public class FileDescriptorUtilsTest {
                 package test.reserved;
                 message Doc {
                   reserved 5;
+                  reserved 536870911;
+                  reserved 536870912;
                   reserved 2147483647;
                   reserved 536870913 to 2147483647;
                   string a = 1;
@@ -895,9 +902,12 @@ public class FileDescriptorUtilsTest {
                 .toProto().getMessageType(0);
 
         for (DescriptorProtos.DescriptorProto message : List.of(viaToDescriptor, viaFileDescriptor)) {
-            assertEquals(1, message.getReservedRangeCount(), message.getReservedRangeList().toString());
+            assertEquals(2, message.getReservedRangeCount(), message.getReservedRangeList().toString());
             assertEquals(5, message.getReservedRange(0).getStart());
             assertEquals(6, message.getReservedRange(0).getEnd());
+            // The largest field number itself is still reserved; the number after it is not.
+            assertEquals(536870911, message.getReservedRange(1).getStart());
+            assertEquals(536870912, message.getReservedRange(1).getEnd());
         }
     }
 }
