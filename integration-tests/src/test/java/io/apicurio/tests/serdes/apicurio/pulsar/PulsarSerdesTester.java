@@ -12,7 +12,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -94,6 +93,7 @@ public class PulsarSerdesTester<P, C> {
         consumerThread.start();
 
         try {
+            // The thread stops at its deadline after at most one more receive, plus a second for scheduling.
             Integer messagesConsumed = resultPromise.get(waitMillis + RECEIVE_POLL_MILLIS + 1000,
                     TimeUnit.MILLISECONDS);
             assertEquals(messageCount, messagesConsumed.intValue());
@@ -112,9 +112,9 @@ public class PulsarSerdesTester<P, C> {
      */
     private int receiveUntilConsumed(Consumer<C> consumer, int messageCount, Predicate<C> dataValidator,
             long deadlineNanos) throws PulsarClientException {
-        AtomicInteger consumedMessages = new AtomicInteger();
+        int consumedMessages = 0;
 
-        while (consumedMessages.get() < messageCount && System.nanoTime() - deadlineNanos < 0) {
+        while (consumedMessages < messageCount && System.nanoTime() - deadlineNanos < 0) {
 
             Message<C> message = consumer.receive(RECEIVE_POLL_MILLIS, TimeUnit.MILLISECONDS);
             if (message == null) {
@@ -126,12 +126,12 @@ public class PulsarSerdesTester<P, C> {
                 assertTrue(dataValidator.test(message.getValue()), "Consumed record validation failed");
             }
 
-            consumedMessages.getAndIncrement();
+            consumedMessages++;
             LOGGER.info("{} {}", message.getTopicName(), message.getValue());
         }
 
-        LOGGER.info("Consumed {} messages", consumedMessages.get());
-        return consumedMessages.get();
+        LOGGER.info("Consumed {} messages", consumedMessages);
+        return consumedMessages;
     }
 
     private static String formatStack(StackTraceElement[] stack) {

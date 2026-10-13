@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.apicurio.deployment.Constants.SMOKE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -74,10 +75,10 @@ class PulsarSerdesTesterIT {
         Message<String> unexpected = mockMessage("unexpected");
         when(consumer.receive(anyInt(), any(TimeUnit.class))).thenReturn(unexpected);
 
-        Exception e = assertThrows(ExecutionException.class,
+        ExecutionException e = assertThrows(ExecutionException.class,
                 () -> tester.consumeMessages(consumer, TOPIC, 1, "value"::equals));
 
-        assertTrue(e.getCause() instanceof AssertionError, String.valueOf(e.getCause()));
+        assertInstanceOf(AssertionError.class, e.getCause());
         assertTrue(e.getCause().getMessage().startsWith("Consumed record validation failed"),
                 e.getCause().getMessage());
     }
