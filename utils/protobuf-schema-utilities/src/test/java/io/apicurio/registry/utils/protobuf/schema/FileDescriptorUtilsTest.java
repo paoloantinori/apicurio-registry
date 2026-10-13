@@ -741,13 +741,19 @@ public class FileDescriptorUtilsTest {
 
     /**
      * toDescriptor builds the descriptor through a second path, the dynamic schema, which the serde and
-     * schema validation parsers use. It must keep the enum reservations of an enum nested in the message.
+     * schema validation parsers use. A top level enum and an enum nested in a message go through different
+     * calls of it, and both must keep their reservations.
      */
     @Test
     public void testToDescriptorKeepsEnumReservations() throws Exception {
         String schema = """
                 syntax = "proto3";
                 package test.reserved;
+                enum Top {
+                  reserved 5 to 8;
+                  reserved "OLD_TOP";
+                  TOP_UNKNOWN = 0;
+                }
                 message Doc {
                   enum Kind {
                     reserved 5 to 8;
@@ -756,6 +762,7 @@ public class FileDescriptorUtilsTest {
                     KIND_UNKNOWN = 0;
                   }
                   Kind kind = 1;
+                  Top top = 2;
                 }
                 """;
         ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
@@ -770,36 +777,12 @@ public class FileDescriptorUtilsTest {
         assertEquals(12, kind.getReservedRange(1).getStart());
         assertEquals(12, kind.getReservedRange(1).getEnd());
         assertEquals(List.of("OLD_VALUE"), kind.getReservedNameList());
-    }
 
-    /**
-     * A top level enum goes through a different call of the dynamic schema than an enum nested in a
-     * message, and the reservations must reach the descriptor on both.
-     */
-    @Test
-    public void testToDescriptorKeepsReservationsOfATopLevelEnum() throws Exception {
-        String schema = """
-                syntax = "proto3";
-                package test.reserved;
-                enum Kind {
-                  reserved 5 to 8;
-                  reserved "OLD_VALUE";
-                  KIND_UNKNOWN = 0;
-                }
-                message Doc {
-                  Kind kind = 1;
-                }
-                """;
-        ProtoFileElement element = ProtoParser.Companion.parse(FileDescriptorUtils.DEFAULT_LOCATION, schema);
-
-        Descriptors.Descriptor descriptor = FileDescriptorUtils.toDescriptor("Doc", element,
-                Collections.emptyMap());
-
-        DescriptorProtos.EnumDescriptorProto kind = descriptor.getFile().findEnumTypeByName("Kind").toProto();
-        assertEquals(1, kind.getReservedRangeCount());
-        assertEquals(5, kind.getReservedRange(0).getStart());
-        assertEquals(8, kind.getReservedRange(0).getEnd());
-        assertEquals(List.of("OLD_VALUE"), kind.getReservedNameList());
+        DescriptorProtos.EnumDescriptorProto top = descriptor.getFile().findEnumTypeByName("Top").toProto();
+        assertEquals(1, top.getReservedRangeCount());
+        assertEquals(5, top.getReservedRange(0).getStart());
+        assertEquals(8, top.getReservedRange(0).getEnd());
+        assertEquals(List.of("OLD_TOP"), top.getReservedNameList());
     }
 
     /**
