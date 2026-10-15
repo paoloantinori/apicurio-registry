@@ -408,6 +408,42 @@ public class GrantsIndirectAccessTest extends AbstractResourceTestBase {
         assertEquals(2, versionCount(GROUP, "draft-parent"));
     }
 
+    @Test
+    public void updatingDraftContentRequiresReadOnItsReferences() {
+        create(alice(), "private-update-target", "AVRO", PRIVATE_AVRO, List.of(), 200);
+        create(alice(), "open-update-target", "AVRO", OPEN_AVRO, List.of(), 200);
+        createIn(GROUP, "update-parent", "JSON", "{\"type\": \"object\"}");
+        addVersion(bob(), GROUP, "update-parent", "{\"type\": \"object\", \"v\": 2}", List.of(), true, 200);
+
+        updateDraftContent(bob(), "update-parent", "{\"type\": \"object\", \"v\": 3}",
+                List.of(reference("private-update-target", "Secret")), 403);
+        alice().get(path(GROUP, "update-parent") + "/versions/2/references").then().statusCode(200)
+                .body("size()", equalTo(0));
+
+        updateDraftContent(bob(), "update-parent", "{\"type\": \"object\", \"v\": 3}",
+                List.of(reference("open-update-target", "Open")), 204);
+        alice().get(path(GROUP, "update-parent") + "/versions/2/references").then().statusCode(200)
+                .body("size()", equalTo(1));
+    }
+
+    @Test
+    public void updatingNonDraftContentFailsOnItsStateBeforeItsReferencesAreChecked() {
+        create(alice(), "private-state-target", "AVRO", PRIVATE_AVRO, List.of(), 200);
+        createIn(GROUP, "state-parent", "JSON", "{\"type\": \"object\"}");
+        addVersion(bob(), GROUP, "state-parent", "{\"type\": \"object\", \"v\": 2}", List.of(), false, 200);
+
+        // Version 2 is published, not a draft: the same 409 as without an unreadable reference
+        updateDraftContent(bob(), "state-parent", "{\"type\": \"object\", \"v\": 3}",
+                List.of(reference("private-state-target", "Secret")), 409);
+    }
+
+    private static void updateDraftContent(RequestSpecification as, String artifactId, String content,
+            List<Map<String, Object>> references, int expectedStatus) {
+        as.contentType(CT_JSON)
+                .body(Map.of("content", content, "contentType", CT_JSON, "references", references))
+                .put(path(GROUP, artifactId) + "/versions/2/content").then().statusCode(expectedStatus);
+    }
+
     // ==================== Creation requires write on the group ====================
 
     @Test

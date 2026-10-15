@@ -1129,6 +1129,7 @@ public class GroupsResourceImpl extends AbstractResourceImpl implements GroupsRe
 
         // Transform the given references into dtos
         final List<ArtifactReferenceDto> referencesAsDtos = toReferenceDtos(data.getReferences());
+        authorizeReferences(referencesAsDtos);
 
         // Create the content wrapper dto
         ContentWrapperDto contentDto = ContentWrapperDto.builder().contentType(data.getContentType())
