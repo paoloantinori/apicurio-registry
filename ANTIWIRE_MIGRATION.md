@@ -563,6 +563,15 @@ written per call.
   classloader, as in the application, and 4-9 us when it is on the system classpath.
 - Tests: utils 69 (two new), schema-util 43, validation 4, serde 28, 144 in total, 0
   failures; checkstyle clean.
+- Against the real baseline (base commit 25c8b5ce0, Square Wire 6.4.0 with the Okio
+  FakeFileSystem), same harness and schema, three fresh JVMs per variant in rotated order,
+  median per run: baseline 1.67, 1.65, 1.63 ms; antiwire on the temp directory 2.45, 2.83,
+  3.53 ms; antiwire on Jimfs 1.08, 1.05, 1.06 ms. So the temp directory was a 50-110 percent
+  regression of this branch against main, and Jimfs puts the branch about 36 percent below
+  main. One small schema only (one message, three imports, one dependency), and the baseline
+  comparison mixes staging (Okio against Jimfs) with parsing (Wire against antiwire); larger
+  schemas shift the weight to parsing. Jimfs ran on the system classpath; under the
+  application's child classloader add 20-45 us.
 
 Not covered: the app regression set and the integration tests were not rerun on this branch.
 
