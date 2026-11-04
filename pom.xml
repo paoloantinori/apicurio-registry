@@ -744,7 +744,7 @@
         <version>${json-schema-validator.version}</version>
       </dependency>
       <dependency>
-        <groupId>io.apicurio</groupId>
+        <groupId>io.apitomy</groupId>
         <artifactId>wire-schema-java</artifactId>
         <version>${antiwire.version}</version>
       </dependency>
