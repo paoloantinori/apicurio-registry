@@ -1,17 +1,23 @@
 package io.apicurio.registry.utils.protobuf.schema;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.MoreFiles;
-import com.google.common.io.RecursiveDeleteOption;
+import com.google.common.io.ByteStreams;
+import com.google.common.jimfs.Configuration;
+import com.google.common.jimfs.Jimfs;
 import com.squareup.wire.schema.JdkSchemaLoader;
 import com.squareup.wire.schema.ProtoFile;
 import com.squareup.wire.schema.Schema;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,23 +50,45 @@ public class ProtobufSchemaLoader {
     private final static String METADATA_PROTO = "metadata.proto";
     private final static String DECIMAL_PROTO = "decimal.proto";
 
-    private static void stagePrebuiltProtos(Path rootDirectory, String protoPath, Set<String> protos)
-            throws IOException {
+    // The prebuilt protos are the same on every call, so they are read from the classpath once.
+    // Suppliers.memoize does not cache an exception: a missing resource fails every call.
+    private static final Supplier<Map<String, byte[]>> PREBUILT_PROTOS = Suppliers
+            .memoize(ProtobufSchemaLoader::readPrebuiltProtos);
+
+    private static Map<String, byte[]> readPrebuiltProtos() {
+        Map<String, byte[]> protos = new LinkedHashMap<>();
+        readPrebuiltProtos(protos, GOOGLE_API_PATH, GOOGLE_API_PROTOS);
+        readPrebuiltProtos(protos, GOOGLE_WELLKNOWN_PATH, GOOGLE_WELLKNOWN_PROTOS);
+        readPrebuiltProtos(protos, METADATA_PATH, Collections.singleton(METADATA_PROTO));
+        readPrebuiltProtos(protos, DECIMAL_PATH, Collections.singleton(DECIMAL_PROTO));
+        return Collections.unmodifiableMap(protos);
+    }
+
+    private static void readPrebuiltProtos(Map<String, byte[]> protos, String protoPath, Set<String> names) {
         final ClassLoader classLoader = ProtobufSchemaLoader.class.getClassLoader();
-        for (String proto : protos) {
-            Path target = rootDirectory.resolve(protoPath + proto);
-            Files.createDirectories(target.getParent());
-            try (InputStream inputStream = classLoader.getResourceAsStream(protoPath + proto)) {
+        for (String proto : names) {
+            String resource = protoPath + proto;
+            try (InputStream inputStream = classLoader.getResourceAsStream(resource)) {
                 if (inputStream == null) {
-                    throw new IOException("Missing pre-built proto resource: " + protoPath + proto);
+                    throw new IllegalStateException("Missing pre-built proto resource: " + resource);
                 }
-                Files.copy(inputStream, target);
+                protos.put(resource, ByteStreams.toByteArray(inputStream));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
         }
     }
 
+    private static void stagePrebuiltProtos(Path rootDirectory) throws IOException {
+        for (Map.Entry<String, byte[]> proto : PREBUILT_PROTOS.get().entrySet()) {
+            Path target = rootDirectory.resolve(proto.getKey());
+            Files.createDirectories(target.getParent());
+            Files.write(target, proto.getValue());
+        }
+    }
+
     /**
-     * Creates a schema loader staging the schema and its dependencies into a temporary directory. This is
+     * Creates a schema loader staging the schema and its dependencies into an in-memory filesystem. This is
      * required for the antiwire schema parser and linker to load the types correctly. See
      * https://github.com/square/wire/issues/2024# As of now this only supports reading one .proto file but
      * can be extended to support reading multiple files.
@@ -73,12 +101,12 @@ public class ProtobufSchemaLoader {
     public static ProtobufSchemaLoaderContext loadSchema(String fileName, String schemaDefinition, Map<String, String> deps) throws IOException {
         String protoFileName = fileName.endsWith(".proto") ? fileName : fileName + ".proto";
 
-        Path rootDirectory = Files.createTempDirectory("apicurio-protobuf-schema-");
-        try {
-            stagePrebuiltProtos(rootDirectory, GOOGLE_API_PATH, GOOGLE_API_PROTOS);
-            stagePrebuiltProtos(rootDirectory, GOOGLE_WELLKNOWN_PATH, GOOGLE_WELLKNOWN_PROTOS);
-            stagePrebuiltProtos(rootDirectory, METADATA_PATH, Collections.singleton(METADATA_PROTO));
-            stagePrebuiltProtos(rootDirectory, DECIMAL_PATH, Collections.singleton(DECIMAL_PROTO));
+        // Always the unix configuration: Jimfs.newFileSystem() without arguments copies the host
+        // platform, which is case-insensitive on macOS, so an import with the wrong case would load
+        // on a macOS host and fail on Linux. Proto import paths are case-sensitive.
+        try (FileSystem stagingFs = Jimfs.newFileSystem(Configuration.unix())) {
+            Path rootDirectory = stagingFs.getPath("/");
+            stagePrebuiltProtos(rootDirectory);
 
             // Step 1: Convert all .proto files to ProtoContent instances
             ProtoContent protoContent = new ProtoContent(protoFileName, schemaDefinition);
@@ -104,7 +132,7 @@ public class ProtobufSchemaLoader {
             protoContent.writeTo(rootDirectory);
 
             // Step 4: Load the .proto using JdkSchemaLoader
-            try (JdkSchemaLoader schemaLoader = new JdkSchemaLoader()) {
+            try (JdkSchemaLoader schemaLoader = JdkSchemaLoader.forFileSystem(stagingFs)) {
                 schemaLoader.initRoots(Collections.singletonList(rootDirectory),
                         Collections.singletonList(rootDirectory));
 
@@ -116,13 +144,6 @@ public class ProtobufSchemaLoader {
                 }
 
                 return new ProtobufSchemaLoaderContext(schema, protoFile);
-            }
-        } finally {
-            // Best effort cleanup: a failed delete must not mask a schema error.
-            try {
-                MoreFiles.deleteRecursively(rootDirectory, RecursiveDeleteOption.ALLOW_INSECURE);
-            } catch (IOException e) {
-                // ignored
             }
         }
     }
