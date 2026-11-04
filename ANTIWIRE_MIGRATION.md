@@ -529,3 +529,43 @@ local jar run was used; the other storage variants were not exercised. The schem
 these tests have no reserved or extension ranges, so the Confluent range gap recorded under
 Open problems (REG-447) is not touched by them. No test failed, so there are no stack
 frames to record.
+
+## io.apitomy groupId and Jimfs staging (REG-511, 2026-11-04)
+
+Branch antiwire-integration-jimfs, worktree wt-antiwire-jimfs, cut from antiwire-integration
+at aec50760d so that wt-antiwire-it, which the antiwire benchmarks use, stays untouched.
+
+Commit c954e4436 moves the three wire-schema-java references to io.apitomy (DEC-19 renamed
+the groupId on 2026-11-03). The io.apicurio coordinates still resolve, but only to the build
+of 62c8646, which has no JdkSchemaLoader.forFileSystem (checked with javap on both jars).
+Built from antiwire e94be29, the last commit touching wire-schema-java sources. The four
+protobuf modules pass unchanged: utils 67, schema-util 43, validation 4, serde 28, 142 in
+total, matching the 62c8646 record. dependency:tree shows io.apitomy wire-schema-java and
+wire-runtime-java and no okio or kotlin.
+
+Commit d5007b78c replaces the per-call temp directory in ProtobufSchemaLoader with an
+in-memory Jimfs filesystem (Configuration.unix()), loaded through
+JdkSchemaLoader.forFileSystem; the 22 prebuilt protos are read from the classpath once and
+written per call.
+
+- Case sensitivity. On main the Okio FakeFileSystem is case-sensitive on every host (probed
+  on macOS: Address.proto exists, address.proto does not). The temp directory had made import
+  resolution host-dependent, so a wrong-case import loaded on macOS and Windows clients and
+  failed on Linux. Configuration.unix() restores the main behaviour. ProtobufSchemaLoaderTest
+  fails on the temp-directory loader on macOS ("Expected SchemaException to be thrown, but
+  nothing was thrown") and passes on Jimfs; on Linux the two behave the same.
+- Guava. The module no longer pins 32.1.3-jre; it takes the BOM's 33.5.0-jre, the version the
+  application already runs with. jimfs 1.3.2 declares 33.7.1-jre; the code review scanned its
+  Guava references against 33.5.0-jre and found none missing.
+- Timing, full loadSchema with parsing, Linux container (podman, eclipse-temurin:21), median
+  per run: 2.48 to 3.57 ms on the temp directory (six runs), 1.00 and 1.04 ms on Jimfs (two
+  runs). Creating a Jimfs filesystem costs 20-45 us when jimfs is loaded by a child
+  classloader, as in the application, and 4-9 us when it is on the system classpath.
+- Tests: utils 69 (two new), schema-util 43, validation 4, serde 28, 144 in total, 0
+  failures; checkstyle clean.
+
+Not covered: the app regression set and the integration tests were not rerun on this branch.
+
+Follow-ups filed: REG-512 (stage only the prebuilt protos a schema imports, or resolve them in
+antiwire), REG-513 (quadratic import fix-up), REG-515 (antiwire is Java 11 bytecode while this
+module still compiles a release 8 variant for the client serdes).
