@@ -532,7 +532,7 @@ frames to record.
 
 ## io.apitomy groupId and Jimfs staging (REG-511, 2026-11-04)
 
-Status 2026-11-05: the Jimfs staging was reverted (cf3e6f08a) by maintainer decision. The
+Status 2026-11-05: the Jimfs staging was reverted (1e1a5ee76) by maintainer decision. The
 measured saving, 1.9 ms per loadSchema on a small schema and 3.3 ms on a 48 KB one on Linux,
 does not justify a new runtime dependency for this project. ProtobufSchemaLoader stages into a
 temp directory per call again, as on aec50760d; the io.apitomy groupId switch stays. After the
