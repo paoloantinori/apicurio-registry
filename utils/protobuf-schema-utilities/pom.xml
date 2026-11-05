@@ -34,18 +34,11 @@
     </dependency>
 
     <!-- Was pulled transitively by com.squareup.wire:wire-schema-jvm; antiwire does not need it,
-         this module's code uses it directly. The version comes from the Quarkus BOM (33.5.0-jre),
-         the one the application runs with. jimfs 1.3.2 declares 33.7.1-jre; every Guava method it
-         references exists in 33.5.0-jre. -->
+         this module's code uses it directly. -->
     <dependency>
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
-    </dependency>
-
-    <!-- In-memory filesystem that ProtobufSchemaLoader stages each schema tree into. -->
-    <dependency>
-      <groupId>com.google.jimfs</groupId>
-      <artifactId>jimfs</artifactId>
+      <version>32.1.3-jre</version>
     </dependency>
 
     <dependency>
