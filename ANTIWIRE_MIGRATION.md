@@ -532,6 +532,15 @@ frames to record.
 
 ## io.apitomy groupId and Jimfs staging (REG-511, 2026-11-04)
 
+Status 2026-11-05: the Jimfs staging was reverted (cf3e6f08a) by maintainer decision. The
+measured saving, 1.9 ms per loadSchema on a small schema and 3.3 ms on a 48 KB one on Linux,
+does not justify a new runtime dependency for this project. ProtobufSchemaLoader stages into a
+temp directory per call again, as on aec50760d; the io.apitomy groupId switch stays. After the
+revert the four protobuf modules match the pre-Jimfs counts (utils 67, schema-util 43, serde 28
+from fresh surefire reports). The measurements below are kept as the record of what was
+evaluated; an in-memory source API in antiwire, if it ever lands, would remove the temp
+directory without a new dependency.
+
 Branch antiwire-integration-jimfs, worktree wt-antiwire-jimfs, cut from antiwire-integration
 at aec50760d so that wt-antiwire-it, which the antiwire benchmarks use, stays untouched.
 
