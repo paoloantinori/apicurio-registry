@@ -572,6 +572,16 @@ written per call.
   comparison mixes staging (Okio against Jimfs) with parsing (Wire against antiwire); larger
   schemas shift the weight to parsing. Jimfs ran on the system classpath; under the
   application's child classloader add 20-45 us.
+- Same comparison on a large schema (LargeSchemaBench: 60 messages in the main file, 8
+  dependency files of 15 messages each importing one another in a chain, timestamp,
+  duration, money, date and postal_address imports, 48 KB of source in total), six fresh
+  JVMs per variant over six rotated rounds, median per run: baseline 3.80-6.38 ms (median of
+  the six 4.49 ms), temp directory 5.67-7.94 ms (6.90 ms), Jimfs 2.98-3.82 ms (3.61 ms).
+  Jimfs stays about 20 percent below main and the temp directory about 54 percent above it.
+  The gap to main narrows from 36 to 20 percent because parsing and linking weigh more on a
+  large tree while staging stays roughly constant. Run-to-run spread is wide on this machine
+  (one baseline run at 6.38 ms against 3.80 ms for another), so read the medians, not single
+  runs.
 
 Not covered: the app regression set and the integration tests were not rerun on this branch.
 
